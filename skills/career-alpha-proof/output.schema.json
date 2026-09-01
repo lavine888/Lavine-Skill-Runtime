@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Career Proof Audit Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "claims", "next_actions"],
+  "properties": {
+    "summary": { "type": "string" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "confidence", "evidence", "risk", "safe_wording", "next_action"],
+        "properties": {
+          "claim": { "type": "string" },
+          "confidence": {
+            "type": "string",
+            "enum": ["VERIFIED", "SUPPORTED", "SELF-REPORTED", "PLANNED"]
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "risk": { "type": "string" },
+          "safe_wording": { "type": "string" },
+          "next_action": { "type": "string" }
+        }
+      }
+    },
+    "next_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
