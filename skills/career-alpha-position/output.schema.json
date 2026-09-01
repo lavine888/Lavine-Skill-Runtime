@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Career Positioning Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["positioning", "resume_summary", "bullets", "channel_pack", "evidence_gaps", "claim_audit_notes", "next_skill"],
+  "properties": {
+    "positioning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["safe", "strong", "future"],
+      "properties": {
+        "safe": { "type": "string" },
+        "strong": { "type": "string" },
+        "future": { "type": "string" }
+      }
+    },
+    "resume_summary": { "type": "string" },
+    "bullets": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "confidence", "note"],
+        "properties": {
+          "text": { "type": "string" },
+          "confidence": {
+            "type": "string",
+            "enum": ["VERIFIED", "SUPPORTED", "SELF-REPORTED", "PLANNED"]
+          },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "channel_pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opener", "intro", "founder_dm"],
+      "properties": {
+        "opener": { "type": "string" },
+        "intro": { "type": "string" },
+        "founder_dm": { "type": "string" }
+      }
+    },
+    "evidence_gaps": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability", "gap", "next_action", "recommended_skill"],
+        "properties": {
+          "capability": { "type": "string" },
+          "gap": { "type": "string" },
+          "next_action": { "type": "string" },
+          "recommended_skill": {
+            "type": "string",
+            "enum": ["/proof", "/build", "/contributor", "/interview", "/offer"]
+          }
+        }
+      }
+    },
+    "claim_audit_notes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "maxItems": 10
+    },
+    "next_skill": {
+      "type": "string",
+      "enum": ["/proof", "/build", "/contributor", "/interview", "/offer"]
+    }
+  }
+}
