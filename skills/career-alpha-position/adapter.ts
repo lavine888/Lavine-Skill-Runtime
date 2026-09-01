@@ -10,6 +10,7 @@ function text(value: unknown) {
 
 export const careerPositionAdapter: SkillAdapter = {
   id: "career-alpha-position",
+  runtime: "llm",
   responseSchemaName: "career_positioning",
   buildMessages(input) {
     return {
