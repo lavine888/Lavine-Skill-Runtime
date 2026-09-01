@@ -1,13 +1,17 @@
 {
   "name": "lavine-skill-runtime",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "skill": "node scripts/skills.mjs",
+    "skill:list": "node scripts/skills.mjs list",
+    "skill:validate": "node scripts/skills.mjs validate",
+    "skill:init": "node scripts/skills.mjs init"
   },
   "dependencies": {
     "ajv": "^8.17.1",
