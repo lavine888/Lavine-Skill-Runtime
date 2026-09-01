@@ -1,71 +1,27 @@
-import Ajv2020 from "ajv/dist/2020";
-import OpenAI from "openai";
-
 import { skillDefinitions } from "../skills/registry";
-import type { RunRecord, SkillDefinition } from "./types";
+import { buildRegistry } from "./registry";
+import { defaultRunStore } from "./run-store";
+import { getRunner, listRunnerTypes } from "./runners";
+import { validateValue } from "./schema";
+import type { RunRecord } from "./types";
 
 export type {
   RunRecord,
   RunStatus,
+  RuntimeType,
   SkillAdapter,
   SkillDefinition,
   SkillManifest,
+  SkillRunner,
+  SourceReference,
 } from "./types";
-
-function buildRegistry(definitions: SkillDefinition[]) {
-  const next = new Map<string, SkillDefinition>();
-
-  for (const definition of definitions) {
-    const id = definition.manifest.id;
-    if (next.has(id)) throw new Error(`Duplicate skill id: ${id}`);
-    if (definition.adapter.id !== id) {
-      throw new Error(
-        `Adapter id mismatch for ${id}: received ${definition.adapter.id}`,
-      );
-    }
-    if (definition.manifest.runtime.adapter !== definition.adapter.id) {
-      throw new Error(
-        `Manifest adapter mismatch for ${id}: expected ${definition.manifest.runtime.adapter}`,
-      );
-    }
-    next.set(id, definition);
-  }
-
-  return next;
-}
 
 const registry = buildRegistry(skillDefinitions);
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __lavineSkillRuns: Map<string, RunRecord> | undefined;
-}
-
-const runs = globalThis.__lavineSkillRuns ?? new Map<string, RunRecord>();
-globalThis.__lavineSkillRuns = runs;
-
-const ajv = new Ajv2020({ allErrors: true, strict: false });
-
-export function listSkills() {
-  return Array.from(registry.values()).map(({ manifest }) => manifest);
-}
-
-export function getSkill(id: string) {
-  return registry.get(id);
-}
-
-export function getRun(id: string) {
-  return runs.get(id);
-}
-
-function validate(schema: Record<string, unknown>, value: unknown) {
-  const validator = ajv.compile(schema);
-  const valid = validator(value);
-  if (!valid) {
-    const message = validator.errors
-      ?.map((error) => `${error.instancePath || "/"} ${error.message}`)
-      .join("; ");
-    throw new Error(`Schema validation failed: ${message || "invalid value"}`);
+class SkillTimeoutError extends Error {
+  constructor(timeoutSeconds: number) {
+    super(`Skill execution timed out after ${timeoutSeconds}s`);
+    this.name = "SkillTimeoutError";
   }
 }
 
@@ -73,7 +29,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutSeconds: number) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new Error(`Skill execution timed out after ${timeoutSeconds}s`)),
+      () => reject(new SkillTimeoutError(timeoutSeconds)),
       timeoutSeconds * 1000,
     );
   });
@@ -85,73 +41,77 @@ async function withTimeout<T>(promise: Promise<T>, timeoutSeconds: number) {
   }
 }
 
-async function runOpenAI(skill: SkillDefinition, input: Record<string, unknown>) {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const messages = skill.adapter.buildMessages(input);
+export function listSkills() {
+  return Array.from(registry.values()).map(({ manifest }) => manifest);
+}
 
-  const completion = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-5-mini",
-    messages: [
-      { role: "system", content: messages.system },
-      { role: "user", content: messages.user },
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: skill.adapter.responseSchemaName,
-        strict: true,
-        schema: skill.outputSchema,
-      },
-    },
-  });
+export function getSkill(id: string) {
+  return registry.get(id);
+}
 
-  const text = completion.choices[0]?.message?.content;
-  if (!text) throw new Error("Model returned no content.");
-  return JSON.parse(text);
+export function supportedRuntimeTypes() {
+  return listRunnerTypes();
+}
+
+export async function getRun(id: string) {
+  return defaultRunStore.get(id);
+}
+
+export async function listRuns() {
+  return defaultRunStore.list();
 }
 
 export async function executeSkill(id: string, input: unknown): Promise<RunRecord> {
   const skill = registry.get(id);
   if (!skill) throw new Error(`Unknown skill: ${id}`);
 
-  validate(skill.inputSchema, input);
+  validateValue(skill.inputSchema, input);
   const typedInput = input as Record<string, unknown>;
+  const runner = getRunner(skill.manifest.runtime.type);
 
   const run: RunRecord = {
     id: crypto.randomUUID(),
     skill_id: skill.manifest.id,
     skill_version: skill.manifest.version,
+    source: structuredClone(skill.manifest.source),
     status: "queued",
     input,
     created_at: new Date().toISOString(),
-    runner: process.env.OPENAI_API_KEY ? "openai" : "demo",
+    runner: skill.manifest.runtime.type,
   };
-  runs.set(run.id, run);
+  await defaultRunStore.create(run);
 
+  const startedMs = Date.now();
   run.status = "running";
-  run.started_at = new Date().toISOString();
+  run.started_at = new Date(startedMs).toISOString();
+  await defaultRunStore.update(run);
 
   try {
-    const execution = process.env.OPENAI_API_KEY
-      ? runOpenAI(skill, typedInput)
-      : Promise.resolve(skill.adapter.demo(typedInput));
-
-    const output = await withTimeout(
-      execution,
+    const execution = await withTimeout(
+      runner.execute(skill, typedInput),
       skill.manifest.limits.timeout_seconds,
     );
 
-    validate(skill.outputSchema, output);
-    run.output = output;
+    validateValue(skill.outputSchema, execution.output);
+    run.output = execution.output;
+    run.runner = execution.runner;
+    run.provider = execution.provider;
+    run.model = execution.model;
     run.status = "completed";
-    run.completed_at = new Date().toISOString();
-    runs.set(run.id, run);
-    return run;
   } catch (error) {
-    run.status = "failed";
+    if (error instanceof SkillTimeoutError) {
+      run.status = "timed_out";
+      run.error_code = "TIMEOUT";
+    } else {
+      run.status = "failed";
+      run.error_code = "EXECUTION_FAILED";
+    }
     run.error = error instanceof Error ? error.message : "Unknown runtime error";
-    run.completed_at = new Date().toISOString();
-    runs.set(run.id, run);
-    return run;
   }
+
+  const completedMs = Date.now();
+  run.completed_at = new Date(completedMs).toISOString();
+  run.duration_ms = completedMs - startedMs;
+  await defaultRunStore.update(run);
+  return run;
 }
