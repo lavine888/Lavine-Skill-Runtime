@@ -85,8 +85,29 @@ async function validateSkills() {
 }
 
 function llmAdapterTemplate(id) {
-  const symbol = id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase());
-  return `import type { SkillAdapter } from "../../runtime/types";\n\nexport const ${symbol}Adapter: SkillAdapter = {\n  id: "${id}",\n  runtime: "llm",\n  responseSchemaName: "${id.replaceAll("-", "_")}_output",\n  buildMessages(input) {\n    return {\n      system: "Follow the reviewed Skill contract. Return only schema-valid JSON.",\n      user: JSON.stringify(input),\n    };\n  },\n  demo(input) {\n    return { summary: `Demo output for ${id}: ${JSON.stringify(input)}` };\n  },\n};\n`;
+  const symbol = id
+    .replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    .replace(/^[a-z]/, (letter) => letter.toLowerCase());
+
+  return [
+    'import type { SkillAdapter } from "../../runtime/types";',
+    "",
+    `export const ${symbol}Adapter: SkillAdapter = {`,
+    `  id: "${id}",`,
+    '  runtime: "llm",',
+    `  responseSchemaName: "${id.replaceAll("-", "_")}_output",`,
+    "  buildMessages(input) {",
+    "    return {",
+    '      system: "Follow the reviewed Skill contract. Return only schema-valid JSON.",',
+    "      user: JSON.stringify(input),",
+    "    };",
+    "  },",
+    "  demo(input) {",
+    `    return { summary: "Demo output for ${id}: " + JSON.stringify(input) };`,
+    "  },",
+    "};",
+    "",
+  ].join("\n");
 }
 
 async function initSkill(args) {
