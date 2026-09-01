@@ -35,13 +35,37 @@
       }
     },
     "runtime": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "adapter"],
-      "properties": {
-        "type": { "enum": ["llm", "python", "image"] },
-        "adapter": { "type": "string", "minLength": 1 }
-      }
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "adapter"],
+          "properties": {
+            "type": { "const": "llm" },
+            "adapter": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "adapter", "entrypoint"],
+          "properties": {
+            "type": { "const": "python" },
+            "adapter": { "type": "string", "minLength": 1 },
+            "entrypoint": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "adapter"],
+          "properties": {
+            "type": { "const": "image" },
+            "adapter": { "type": "string", "minLength": 1 },
+            "provider": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
     },
     "input_schema": { "type": "string", "minLength": 1 },
     "output_schema": { "type": "string", "minLength": 1 },
