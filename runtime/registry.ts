@@ -8,12 +8,13 @@ const manifestAjv = new Ajv2020({ allErrors: true, strict: false });
 const validateManifestSchema = manifestAjv.compile(manifestSchema);
 
 export function assertValidManifest(manifest: SkillManifest) {
+  const manifestId = manifest.id;
   const valid = validateManifestSchema(manifest);
   if (!valid) {
     const detail = validateManifestSchema.errors
       ?.map((error) => `${error.instancePath || "/"} ${error.message}`)
       .join("; ");
-    throw new Error(`Invalid skill manifest ${manifest.id || "<unknown>"}: ${detail}`);
+    throw new Error(`Invalid skill manifest ${manifestId || "<unknown>"}: ${detail}`);
   }
 }
 
