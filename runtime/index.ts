@@ -12,9 +12,29 @@ export type {
   SkillManifest,
 } from "./types";
 
-const registry = new Map<string, SkillDefinition>(
-  skillDefinitions.map((definition) => [definition.manifest.id, definition]),
-);
+function buildRegistry(definitions: SkillDefinition[]) {
+  const next = new Map<string, SkillDefinition>();
+
+  for (const definition of definitions) {
+    const id = definition.manifest.id;
+    if (next.has(id)) throw new Error(`Duplicate skill id: ${id}`);
+    if (definition.adapter.id !== id) {
+      throw new Error(
+        `Adapter id mismatch for ${id}: received ${definition.adapter.id}`,
+      );
+    }
+    if (definition.manifest.runtime.adapter !== definition.adapter.id) {
+      throw new Error(
+        `Manifest adapter mismatch for ${id}: expected ${definition.manifest.runtime.adapter}`,
+      );
+    }
+    next.set(id, definition);
+  }
+
+  return next;
+}
+
+const registry = buildRegistry(skillDefinitions);
 
 declare global {
   // eslint-disable-next-line no-var
@@ -46,6 +66,22 @@ function validate(schema: Record<string, unknown>, value: unknown) {
       ?.map((error) => `${error.instancePath || "/"} ${error.message}`)
       .join("; ");
     throw new Error(`Schema validation failed: ${message || "invalid value"}`);
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutSeconds: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Skill execution timed out after ${timeoutSeconds}s`)),
+      timeoutSeconds * 1000,
+    );
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -96,9 +132,14 @@ export async function executeSkill(id: string, input: unknown): Promise<RunRecor
   run.started_at = new Date().toISOString();
 
   try {
-    const output = process.env.OPENAI_API_KEY
-      ? await runOpenAI(skill, typedInput)
-      : skill.adapter.demo(typedInput);
+    const execution = process.env.OPENAI_API_KEY
+      ? runOpenAI(skill, typedInput)
+      : Promise.resolve(skill.adapter.demo(typedInput));
+
+    const output = await withTimeout(
+      execution,
+      skill.manifest.limits.timeout_seconds,
+    );
 
     validate(skill.outputSchema, output);
     run.output = output;
