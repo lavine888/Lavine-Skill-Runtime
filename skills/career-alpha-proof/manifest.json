@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "id": "career-alpha-proof",
+  "name": "Career Proof Audit",
+  "description": "Audit career claims against real evidence and return defensible wording, risks, and next actions.",
+  "version": "0.1.0",
+  "source": {
+    "repo": "lavine888/career-alpha",
+    "path": "skills/proof/SKILL.md"
+  },
+  "runtime": {
+    "type": "llm",
+    "adapter": "career-alpha-proof"
+  },
+  "input_schema": "./input.schema.json",
+  "output_schema": "./output.schema.json",
+  "artifacts": ["json"],
+  "limits": {
+    "timeout_seconds": 120
+  }
+}
