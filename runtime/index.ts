@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import Ajv2020 from "ajv/dist/2020";
 import OpenAI from "openai";
 
 import manifest from "../skills/career-alpha-proof/manifest.json";
@@ -71,7 +71,7 @@ declare global {
 const runs = globalThis.__lavineSkillRuns ?? new Map<string, RunRecord>();
 globalThis.__lavineSkillRuns = runs;
 
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajv = new Ajv2020({ allErrors: true, strict: false });
 
 export function listSkills() {
   return Array.from(registry.values()).map(({ manifest }) => manifest);
