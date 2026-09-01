@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "id": "career-alpha-position",
+  "name": "Career Positioning",
+  "description": "Translate real evidence into safe, strong, and future positioning for a target role without upgrading facts.",
+  "version": "0.1.0",
+  "source": {
+    "repo": "lavine888/career-alpha",
+    "path": "skills/position/SKILL.md"
+  },
+  "runtime": {
+    "type": "llm",
+    "adapter": "career-alpha-position"
+  },
+  "input_schema": "./input.schema.json",
+  "output_schema": "./output.schema.json",
+  "artifacts": ["json"],
+  "limits": {
+    "timeout_seconds": 120
+  },
+  "tags": ["career", "positioning", "resume"]
+}
