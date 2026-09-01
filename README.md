@@ -4,99 +4,168 @@
 
 ### Turn `SKILL.md` into runnable products.
 
-**One runtime · schema-driven inputs · reviewed adapters · validated outputs**
+**Contract-first · runner-based · provider-neutral · provenance-aware**
 
 </div>
 
 ---
 
-Lavine Skill Runtime is a small execution layer for turning reviewed Agent Skills into web/API products without teaching the runtime their business logic.
-
-The design goal is simple:
+Lavine Skill Runtime turns reviewed Agent Skills into schema-driven web/API products without teaching the Runtime Core their business logic.
 
 > **Adding the next Skill should extend the catalog, not rewrite the Runtime Core.**
 
-## v0.2 status
+## v0.3 status
 
-Two Career Alpha skills now run through the same core:
+Two Career Alpha skills run through the same LLM runner:
 
 | Skill | Source | Runtime | Status |
 | --- | --- | --- | --- |
 | `career-alpha-proof` | `career-alpha/skills/proof/SKILL.md` | LLM | Runnable |
 | `career-alpha-position` | `career-alpha/skills/position/SKILL.md` | LLM | Runnable |
 
-The web workbench is schema-driven: it reads each Skill's input schema to generate the form and renders arbitrary schema-validated JSON output without a skill-specific page.
+v0.3 hardens the runtime around six boundaries:
 
-## Execution flow
+- **Manifest contract** — every Skill manifest is validated against JSON Schema 2020-12.
+- **Runner abstraction** — Core dispatches by runtime type; only registered runners can execute.
+- **Provider abstraction** — LLM execution is isolated behind an OpenAI-compatible provider adapter.
+- **RunStore abstraction** — in-memory storage is replaceable without changing execution logic.
+- **Source provenance** — every registered Skill pins an upstream ref and immutable commit SHA.
+- **Skill tooling** — CLI commands list, validate, and scaffold Skill contracts.
+
+## Architecture
 
 ```text
-SKILL.md / reviewed workflow
-        ↓
-manifest.json
-        ↓
-input.schema.json
-        ↓
-Skill Adapter
-        ↓
-Skill Registry
-        ↓
-Runtime Core
-        ↓
-Runner (LLM today)
-        ↓
-output.schema.json
-        ↓
-Run Record
-        ↓
-Web UI / API
+Reviewed SKILL.md
+      │
+      ▼
+manifest.json ──► Manifest Schema
+      │
+      ├── input.schema.json
+      ├── output.schema.json
+      └── adapter.ts
+              │
+              ▼
+        Skill Registry
+              │
+              ▼
+        Runtime Core
+              │
+              ▼
+        Runner Registry
+              │
+        ┌─────┴─────┐
+        │           │
+     LLM Runner   future Python/Image runners
+        │
+        ▼
+ OpenAI-compatible Provider
+        │
+        ▼
+ validated output
+        │
+        ▼
+          RunStore
+        │
+        ▼
+       Web / API
 ```
 
-## What the core knows
+The Runtime Core does not import OpenAI, Career Alpha prompts, or individual Skill implementations. It validates, dispatches, tracks lifecycle, and persists through interfaces.
 
-The Runtime Core knows how to:
+## Run lifecycle
 
-- discover registered Skill definitions;
-- validate input with JSON Schema 2020-12;
-- create a run and track `queued → running → completed | failed`;
-- dispatch to a reviewed runner/adapter;
-- validate the returned output;
-- expose the run through API and UI.
+```text
+queued
+  ↓
+running
+  ├──► completed
+  ├──► failed
+  └──► timed_out
+```
 
-It does **not** know what career evidence, resume positioning, quant factors, or illustration styles mean.
+`cancelled` is reserved in the status contract for the future worker/queue layer.
+
+A run records:
+
+- Skill ID and version;
+- pinned source repository, ref, path, and commit;
+- runner, provider, and model;
+- timestamps and duration;
+- input/output;
+- error code and failure state.
 
 ## Skill contract
-
-Each hosted Skill owns its business logic:
 
 ```text
 skills/<skill-id>/
 ├── manifest.json
 ├── input.schema.json
 ├── output.schema.json
-├── prompt.ts
+├── prompt.ts        # LLM skills
 └── adapter.ts
 ```
 
-`skills/registry.ts` is the catalog boundary. Runtime Core imports the catalog, not individual Skill implementations.
+The v1 manifest supports runtime contracts for:
 
-## Stack
+```text
+llm
+python  # schema-ready, runner not registered yet
+image   # schema-ready, runner not registered yet
+```
 
-- Next.js + React + TypeScript
-- JSON Schema 2020-12 + Ajv
-- OpenAI SDK
-- In-memory run store for v0.x
-- Vitest
-- GitHub Actions: typecheck + tests + production build
+Unsupported runtime types fail closed until their runner is explicitly registered.
+
+## Skill CLI
+
+List contracts:
+
+```bash
+npm run skill:list
+```
+
+Validate every manifest and JSON Schema:
+
+```bash
+npm run skill:validate
+```
+
+Scaffold a new Skill contract:
+
+```bash
+npm run skill:init -- \
+  my-skill \
+  owner/repository \
+  skills/my-skill/SKILL.md \
+  0123456789abcdef0123456789abcdef01234567 \
+  llm
+```
+
+The generated contract still requires review and registration in `skills/registry.ts`.
+
+## Provider configuration
+
+The preferred configuration is provider-neutral and works with OpenAI-compatible endpoints:
+
+```env
+LLM_API_KEY=
+LLM_BASE_URL=
+LLM_MODEL=gpt-5-mini
+LLM_PROVIDER=openai-compatible
+```
+
+`OPENAI_API_KEY` and `OPENAI_MODEL` remain backward-compatible aliases.
+
+Without a provider key, reviewed LLM Skills use deterministic demo adapters while still passing through the same manifest → registry → runner → RunStore → output-validation path.
 
 ## Quick start
 
 ```bash
 npm install
 cp .env.example .env.local
+npm run skill:validate
+npm test
 npm run dev
 ```
-
-Set `OPENAI_API_KEY` in `.env.local` for model-backed execution. Without a key, each reviewed Skill can provide a deterministic demo adapter so the same manifest/schema/run pipeline remains testable.
 
 Open `http://localhost:3000`.
 
@@ -109,7 +178,7 @@ POST /api/skills/:id/run
 GET  /api/runs/:runId
 ```
 
-Example — Career Proof:
+Example:
 
 ```bash
 curl -X POST http://localhost:3000/api/skills/career-alpha-proof/run \
@@ -121,51 +190,46 @@ curl -X POST http://localhost:3000/api/skills/career-alpha-proof/run \
   }'
 ```
 
-Example — Career Positioning:
+## CI contract
 
-```bash
-curl -X POST http://localhost:3000/api/skills/career-alpha-position/run \
-  -H "content-type: application/json" \
-  -d '{
-    "target_role":"Agent Engineer",
-    "current_material":"Built an agent workflow, documented failure cases, coordinated integration, and published a working repository with tests.",
-    "channel":"resume"
-  }'
+Every push must pass:
+
+```text
+Skill manifest/schema validation
+TypeScript typecheck
+Runtime tests
+Next.js production build
+Production dependency security audit
 ```
 
 ## Current boundaries
 
-v0.2 intentionally does **not** include:
+v0.3 intentionally does **not** include:
 
-- marketplace / creator uploads;
-- billing or credits;
+- marketplace or arbitrary creator uploads;
+- billing / credits;
 - arbitrary third-party code execution;
-- queues or background workers;
+- persistent Postgres RunStore;
+- queue / worker orchestration;
 - Python runner;
 - image runner;
 - Docker sandbox;
-- persistent Postgres run history;
 - artifact object storage.
-
-Those become useful only after the Skill contract and multi-Skill runtime are proven.
 
 ## Next milestones
 
-### v0.3 — Skill SDK / contract tooling
-
-- manifest validation;
-- `skill init` template;
-- registry consistency checks;
-- contract tests per Skill.
-
 ### v0.4 — Python Runner
 
-Use the same Runtime Core to host code-backed Skills such as Buffett Moat Screener and Mean Reversal.
+Run code-backed Skills through the same Core. The first target is a reviewed, deterministic Quant Skill such as Buffett Moat Screener.
 
-### v0.5 — Artifacts
+### v0.5 — Artifact Store
 
-Persist Markdown, JSON, CSV, Parquet, PNG and ZIP outputs outside the run record.
+Move file outputs such as JSON, CSV, Parquet, Markdown, PNG and ZIP behind an `ArtifactStore` interface.
+
+### v0.6 — Persistent Runs + observability
+
+Add PostgreSQL-backed RunStore, run history, token/cost metadata, structured errors, and operational metrics.
 
 ---
 
-**Core invariant:** a new business domain should be added as a Skill definition + adapter, not as a special case inside Runtime Core.
+**Core invariant:** business domains belong in Skill definitions and adapters; execution environments belong in runners; vendors belong in providers; persistence belongs in stores.
