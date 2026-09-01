@@ -1,13 +1,13 @@
 import Ajv from "ajv";
 import OpenAI from "openai";
 
-import manifest from "@/skills/career-alpha-proof/manifest.json";
-import inputSchema from "@/skills/career-alpha-proof/input.schema.json";
-import outputSchema from "@/skills/career-alpha-proof/output.schema.json";
+import manifest from "../skills/career-alpha-proof/manifest.json";
+import inputSchema from "../skills/career-alpha-proof/input.schema.json";
+import outputSchema from "../skills/career-alpha-proof/output.schema.json";
 import {
   buildCareerProofPrompt,
   CAREER_ALPHA_PROOF_SYSTEM_PROMPT,
-} from "@/skills/career-alpha-proof/prompt";
+} from "../skills/career-alpha-proof/prompt";
 
 export type RunStatus = "queued" | "running" | "completed" | "failed";
 
