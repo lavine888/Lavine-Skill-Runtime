@@ -1,13 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { executeSkill, getRun, getSkill, listSkills } from "../runtime";
+import {
+  executeSkill,
+  getRun,
+  getSkill,
+  listSkills,
+  supportedRuntimeTypes,
+} from "../runtime";
 
-describe("Lavine Skill Runtime", () => {
-  it("registers multiple skills without business logic in runtime core", () => {
+describe("Lavine Skill Runtime v0.3", () => {
+  it("registers reviewed skills and only advertises implemented runners", () => {
     const ids = listSkills().map((skill) => skill.id);
     expect(ids).toContain("career-alpha-proof");
     expect(ids).toContain("career-alpha-position");
     expect(getSkill("career-alpha-proof")?.manifest.runtime.type).toBe("llm");
     expect(getSkill("career-alpha-position")?.manifest.runtime.type).toBe("llm");
+    expect(supportedRuntimeTypes()).toEqual(["llm"]);
+  });
+
+  it("pins every registered source to an immutable commit", () => {
+    for (const skill of listSkills()) {
+      expect(skill.source.ref.length).toBeGreaterThan(0);
+      expect(skill.source.commit).toMatch(/^[0-9a-f]{40}$/);
+    }
   });
 
   it("rejects invalid input before execution", async () => {
@@ -26,8 +40,10 @@ describe("Lavine Skill Runtime", () => {
     ).rejects.toThrow("Schema validation failed");
   });
 
-  it("runs Career Proof through the generic demo pipeline", async () => {
-    const previousKey = process.env.OPENAI_API_KEY;
+  it("runs Career Proof through the generic LLM runner and RunStore", async () => {
+    const previousLlmKey = process.env.LLM_API_KEY;
+    const previousOpenAiKey = process.env.OPENAI_API_KEY;
+    delete process.env.LLM_API_KEY;
     delete process.env.OPENAI_API_KEY;
 
     const run = await executeSkill("career-alpha-proof", {
@@ -37,16 +53,23 @@ describe("Lavine Skill Runtime", () => {
     });
 
     expect(run.status).toBe("completed");
-    expect(run.runner).toBe("demo");
+    expect(run.runner).toBe("llm");
+    expect(run.provider).toBe("demo");
+    expect(run.model).toBe("deterministic");
     expect(run.skill_id).toBe("career-alpha-proof");
+    expect(run.duration_ms).toBeTypeOf("number");
+    expect(run.source.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(run.output).toBeTruthy();
-    expect(getRun(run.id)?.id).toBe(run.id);
+    expect((await getRun(run.id))?.id).toBe(run.id);
 
-    if (previousKey) process.env.OPENAI_API_KEY = previousKey;
+    if (previousLlmKey) process.env.LLM_API_KEY = previousLlmKey;
+    if (previousOpenAiKey) process.env.OPENAI_API_KEY = previousOpenAiKey;
   });
 
-  it("runs Career Positioning through the same runtime core", async () => {
-    const previousKey = process.env.OPENAI_API_KEY;
+  it("runs Career Positioning through the same core without special cases", async () => {
+    const previousLlmKey = process.env.LLM_API_KEY;
+    const previousOpenAiKey = process.env.OPENAI_API_KEY;
+    delete process.env.LLM_API_KEY;
     delete process.env.OPENAI_API_KEY;
 
     const run = await executeSkill("career-alpha-position", {
@@ -57,7 +80,8 @@ describe("Lavine Skill Runtime", () => {
     });
 
     expect(run.status).toBe("completed");
-    expect(run.runner).toBe("demo");
+    expect(run.runner).toBe("llm");
+    expect(run.provider).toBe("demo");
     expect(run.skill_id).toBe("career-alpha-position");
     expect(run.output).toMatchObject({
       positioning: {
@@ -67,6 +91,7 @@ describe("Lavine Skill Runtime", () => {
       },
     });
 
-    if (previousKey) process.env.OPENAI_API_KEY = previousKey;
+    if (previousLlmKey) process.env.LLM_API_KEY = previousLlmKey;
+    if (previousOpenAiKey) process.env.OPENAI_API_KEY = previousOpenAiKey;
   });
 });
