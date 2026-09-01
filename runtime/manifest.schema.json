@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lavine.dev/schemas/skill-manifest-v1.json",
+  "title": "Lavine Skill Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "description",
+    "version",
+    "source",
+    "runtime",
+    "input_schema",
+    "output_schema",
+    "artifacts",
+    "limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+    "description": { "type": "string", "minLength": 10, "maxLength": 500 },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "path", "ref", "commit"],
+      "properties": {
+        "repo": { "type": "string", "pattern": "^[^/\\s]+/[^/\\s]+$" },
+        "path": { "type": "string", "minLength": 1 },
+        "ref": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "adapter"],
+      "properties": {
+        "type": { "enum": ["llm", "python", "image"] },
+        "adapter": { "type": "string", "minLength": 1 }
+      }
+    },
+    "input_schema": { "type": "string", "minLength": 1 },
+    "output_schema": { "type": "string", "minLength": 1 },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds"],
+      "properties": {
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+      "uniqueItems": true
+    }
+  }
+}
