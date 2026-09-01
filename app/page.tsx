@@ -7,6 +7,8 @@ type SkillManifest = {
   name: string;
   description: string;
   version: string;
+  source?: { repo: string; path: string; ref: string; commit: string };
+  runtime?: { type: string };
   tags?: string[];
 };
 
@@ -36,7 +38,11 @@ type RunResponse = {
   skill_id?: string;
   skill_version?: string;
   status: string;
-  runner: "openai" | "demo";
+  runner: string;
+  provider?: string;
+  model?: string;
+  duration_ms?: number;
+  source?: { repo: string; path: string; ref: string; commit: string };
   output?: unknown;
   error?: string;
 };
@@ -161,7 +167,8 @@ export default function HomePage() {
       setRun({
         id: "client-error",
         status: "failed",
-        runner: "demo",
+        runner: "llm",
+        provider: "client",
         error: error instanceof Error ? error.message : "Request failed",
       });
     } finally {
@@ -172,11 +179,11 @@ export default function HomePage() {
   return (
     <main className="shell">
       <section className="hero">
-        <span className="eyebrow">LAVINE SKILL RUNTIME · V0.2</span>
-        <h1>One runtime. Many skills.</h1>
+        <span className="eyebrow">LAVINE SKILL RUNTIME · V0.3</span>
+        <h1>One runtime. Many execution paths.</h1>
         <p>
-          A schema-driven execution layer that turns reviewed SKILL.md workflows into
-          runnable products without teaching the runtime their business logic.
+          A contract-first execution layer with typed manifests, runner dispatch,
+          provider abstraction, provenance, and schema-validated outputs.
         </p>
       </section>
 
@@ -200,7 +207,7 @@ export default function HomePage() {
             >
               <span>{skill.name}</span>
               <small>{skill.description}</small>
-              <em>v{skill.version}</em>
+              <em>{skill.runtime?.type || "runtime"} · v{skill.version}</em>
             </button>
           ))}
         </div>
@@ -213,7 +220,7 @@ export default function HomePage() {
               <span className="kicker">Schema-generated input</span>
               <h2>{detail?.manifest.name || "Select a skill"}</h2>
             </div>
-            {detail && <span className="status">Runnable</span>}
+            {detail && <span className="status">{detail.manifest.runtime?.type || "Runnable"}</span>}
           </div>
 
           {!detail && <div className="empty compact"><p>Loading skill contract…</p></div>}
@@ -265,8 +272,13 @@ export default function HomePage() {
             <>
               <button className="runButton" disabled={loading}>{loading ? "Running skill…" : "Run Skill"}</button>
               <p className="fineprint">
-                No API key? The deterministic demo adapter still passes through the same manifest, schema, registry, run lifecycle, and output validation path.
+                No provider key? The deterministic demo adapter still passes through the same manifest, schema, registry, runner, RunStore, and output validation path.
               </p>
+              {detail.manifest.source && (
+                <p className="fineprint">
+                  Source pinned to {detail.manifest.source.repo}@{detail.manifest.source.commit.slice(0, 8)}.
+                </p>
+              )}
             </>
           )}
         </form>
@@ -277,7 +289,7 @@ export default function HomePage() {
               <span className="kicker">Schema-validated output</span>
               <h2>Run result</h2>
             </div>
-            {run && <span className="status">{run.runner}</span>}
+            {run && <span className="status">{run.status}</span>}
           </div>
 
           {!run && (
@@ -295,6 +307,16 @@ export default function HomePage() {
                 <span>{run.skill_id || selectedId}</span>
                 <code>{run.id}</code>
               </div>
+              <div className="runMeta">
+                <span>{run.runner} · {run.provider || "unknown"}{run.model ? ` · ${run.model}` : ""}</span>
+                <code>{run.duration_ms ?? 0} ms</code>
+              </div>
+              {run.source && (
+                <div className="runMeta">
+                  <span>{run.source.repo}</span>
+                  <code>{run.source.commit.slice(0, 12)}</code>
+                </div>
+              )}
               <StructuredValue value={run.output} />
             </div>
           )}
@@ -302,7 +324,7 @@ export default function HomePage() {
       </section>
 
       <section className="architecture">
-        <span>manifest</span><b>→</b><span>schema</span><b>→</b><span>adapter</span><b>→</b><span>registry</span><b>→</b><span>runner</span><b>→</b><span>validated output</span>
+        <span>manifest</span><b>→</b><span>schema</span><b>→</b><span>registry</span><b>→</b><span>runner</span><b>→</b><span>provider</span><b>→</b><span>RunStore</span><b>→</b><span>validated output</span>
       </section>
     </main>
   );
