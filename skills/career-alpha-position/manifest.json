@@ -6,7 +6,9 @@
   "version": "0.1.0",
   "source": {
     "repo": "lavine888/career-alpha",
-    "path": "skills/position/SKILL.md"
+    "path": "skills/position/SKILL.md",
+    "ref": "main",
+    "commit": "c70c071771a808f618fb43c034de9c04c52276f4"
   },
   "runtime": {
     "type": "llm",
