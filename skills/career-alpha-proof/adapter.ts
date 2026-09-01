@@ -17,6 +17,7 @@ function text(value: unknown) {
 
 export const careerProofAdapter: SkillAdapter = {
   id: "career-alpha-proof",
+  runtime: "llm",
   responseSchemaName: "career_proof_audit",
   buildMessages(input) {
     const typed = input as CareerProofInput;
@@ -37,7 +38,7 @@ export const careerProofAdapter: SkillAdapter = {
 
     return {
       summary:
-        "Demo audit completed through the same manifest, schema, adapter, run lifecycle, and output validation path used by the live runner. Add OPENAI_API_KEY for model-backed analysis.",
+        "Demo audit completed through the same manifest, schema, adapter, run lifecycle, and output validation path used by the live runner. Configure an LLM provider for model-backed analysis.",
       claims: [
         {
           claim: resume.slice(0, 180),
