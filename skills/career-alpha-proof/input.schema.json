@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Career Proof Audit Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target_role", "resume"],
+  "properties": {
+    "target_role": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 160,
+      "title": "Target role"
+    },
+    "resume": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 30000,
+      "title": "Resume / experience"
+    },
+    "evidence": {
+      "type": "string",
+      "maxLength": 30000,
+      "title": "Evidence",
+      "description": "Repos, PRs, benchmarks, deployment notes, competition results, feedback, or other proof."
+    },
+    "github_url": {
+      "type": "string",
+      "maxLength": 300,
+      "title": "GitHub URL"
+    }
+  }
+}
