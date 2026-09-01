@@ -1,67 +1,20 @@
 import Ajv2020 from "ajv/dist/2020";
 import OpenAI from "openai";
 
-import manifest from "../skills/career-alpha-proof/manifest.json";
-import inputSchema from "../skills/career-alpha-proof/input.schema.json";
-import outputSchema from "../skills/career-alpha-proof/output.schema.json";
-import {
-  buildCareerProofPrompt,
-  CAREER_ALPHA_PROOF_SYSTEM_PROMPT,
-} from "../skills/career-alpha-proof/prompt";
+import { skillDefinitions } from "../skills/registry";
+import type { RunRecord, SkillDefinition } from "./types";
 
-export type RunStatus = "queued" | "running" | "completed" | "failed";
+export type {
+  RunRecord,
+  RunStatus,
+  SkillAdapter,
+  SkillDefinition,
+  SkillManifest,
+} from "./types";
 
-type CareerProofInput = {
-  target_role: string;
-  resume: string;
-  evidence?: string;
-  github_url?: string;
-};
-
-export type SkillManifest = {
-  schema_version: string;
-  id: string;
-  name: string;
-  description: string;
-  version: string;
-  source: { repo: string; path: string };
-  runtime: { type: "llm"; adapter: string };
-  input_schema: string;
-  output_schema: string;
-  artifacts: string[];
-  limits: { timeout_seconds: number };
-};
-
-export type RunRecord = {
-  id: string;
-  skill_id: string;
-  skill_version: string;
-  status: RunStatus;
-  input: unknown;
-  output?: unknown;
-  error?: string;
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  runner: "openai" | "demo";
-};
-
-type RegisteredSkill = {
-  manifest: SkillManifest;
-  inputSchema: Record<string, unknown>;
-  outputSchema: Record<string, unknown>;
-};
-
-const registry = new Map<string, RegisteredSkill>([
-  [
-    manifest.id,
-    {
-      manifest: manifest as SkillManifest,
-      inputSchema: inputSchema as Record<string, unknown>,
-      outputSchema: outputSchema as Record<string, unknown>,
-    },
-  ],
-]);
+const registry = new Map<string, SkillDefinition>(
+  skillDefinitions.map((definition) => [definition.manifest.id, definition]),
+);
 
 declare global {
   // eslint-disable-next-line no-var
@@ -96,49 +49,22 @@ function validate(schema: Record<string, unknown>, value: unknown) {
   }
 }
 
-function demoOutput(input: CareerProofInput) {
-  const evidence = input.evidence?.trim();
-  return {
-    summary:
-      "Demo audit completed through the same manifest, schema, run lifecycle, and output validation path used by the live runner. Add OPENAI_API_KEY for model-backed analysis.",
-    claims: [
-      {
-        claim: input.resume.slice(0, 180),
-        confidence: evidence ? "SUPPORTED" : "SELF-REPORTED",
-        evidence: evidence ? [evidence.slice(0, 240)] : [],
-        risk: evidence
-          ? "The supplied material supports the existence of the work, but ownership, exact outcomes, and causality still require claim-level evidence."
-          : "No external or reproducible evidence was supplied, so the claim currently depends mainly on self-report.",
-        safe_wording: `Worked on experience relevant to ${input.target_role}; describe only the responsibilities and outcomes you can directly support.`,
-        next_action:
-          "Attach the smallest direct artifact that proves ownership or outcome: a PR, benchmark, deployment record, design decision, or external result.",
-      },
-    ],
-    next_actions: [
-      "Replace broad claims with atomic claims.",
-      "Attach direct evidence to the highest-value claim.",
-      "Re-run the audit before moving the claim into resume or interview wording.",
-    ],
-  };
-}
-
-async function runOpenAI(
-  input: CareerProofInput,
-  schema: Record<string, unknown>,
-) {
+async function runOpenAI(skill: SkillDefinition, input: Record<string, unknown>) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const messages = skill.adapter.buildMessages(input);
+
   const completion = await client.chat.completions.create({
     model: process.env.OPENAI_MODEL || "gpt-5-mini",
     messages: [
-      { role: "system", content: CAREER_ALPHA_PROOF_SYSTEM_PROMPT },
-      { role: "user", content: buildCareerProofPrompt(input) },
+      { role: "system", content: messages.system },
+      { role: "user", content: messages.user },
     ],
     response_format: {
       type: "json_schema",
       json_schema: {
-        name: "career_proof_audit",
+        name: skill.adapter.responseSchemaName,
         strict: true,
-        schema,
+        schema: skill.outputSchema,
       },
     },
   });
@@ -153,6 +79,7 @@ export async function executeSkill(id: string, input: unknown): Promise<RunRecor
   if (!skill) throw new Error(`Unknown skill: ${id}`);
 
   validate(skill.inputSchema, input);
+  const typedInput = input as Record<string, unknown>;
 
   const run: RunRecord = {
     id: crypto.randomUUID(),
@@ -169,10 +96,9 @@ export async function executeSkill(id: string, input: unknown): Promise<RunRecor
   run.started_at = new Date().toISOString();
 
   try {
-    const typedInput = input as CareerProofInput;
     const output = process.env.OPENAI_API_KEY
-      ? await runOpenAI(typedInput, skill.outputSchema)
-      : demoOutput(typedInput);
+      ? await runOpenAI(skill, typedInput)
+      : skill.adapter.demo(typedInput);
 
     validate(skill.outputSchema, output);
     run.output = output;
