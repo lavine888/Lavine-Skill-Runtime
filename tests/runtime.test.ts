@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { executeSkill, getRun, getSkill, listSkills } from "@/runtime";
+import { executeSkill, getRun, getSkill, listSkills } from "../runtime";
 
 describe("Lavine Skill Runtime MVP", () => {
   it("registers Career Alpha proof", () => {
