@@ -11,6 +11,13 @@ import {
 
 export type RunStatus = "queued" | "running" | "completed" | "failed";
 
+type CareerProofInput = {
+  target_role: string;
+  resume: string;
+  evidence?: string;
+  github_url?: string;
+};
+
 export type SkillManifest = {
   schema_version: string;
   id: string;
@@ -89,7 +96,7 @@ function validate(schema: Record<string, unknown>, value: unknown) {
   }
 }
 
-function demoOutput(input: Record<string, string>) {
+function demoOutput(input: CareerProofInput) {
   const evidence = input.evidence?.trim();
   return {
     summary:
@@ -116,7 +123,7 @@ function demoOutput(input: Record<string, string>) {
 }
 
 async function runOpenAI(
-  input: Record<string, string>,
+  input: CareerProofInput,
   schema: Record<string, unknown>,
 ) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -162,7 +169,7 @@ export async function executeSkill(id: string, input: unknown): Promise<RunRecor
   run.started_at = new Date().toISOString();
 
   try {
-    const typedInput = input as Record<string, string>;
+    const typedInput = input as CareerProofInput;
     const output = process.env.OPENAI_API_KEY
       ? await runOpenAI(typedInput, skill.outputSchema)
       : demoOutput(typedInput);
