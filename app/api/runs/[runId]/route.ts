@@ -6,7 +6,7 @@ export async function GET(
   context: { params: Promise<{ runId: string }> },
 ) {
   const { runId } = await context.params;
-  const run = getRun(runId);
+  const run = await getRun(runId);
   if (!run) {
     return NextResponse.json({ error: "Run not found" }, { status: 404 });
   }
