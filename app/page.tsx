@@ -226,14 +226,14 @@ export default function HomePage() {
       <header className="topbar">
         <div className="brandMark"><b>LVN</b><span>/</span>SKILL RUNTIME</div>
         <div className="topbarMeta">
-          <span>RUNNABLE BOUNDARY</span>
+          <span>LLM + PYTHON</span>
           <span className="liveMark"><i />{catalogLoading ? "SYNC" : "LIVE"}</span>
         </div>
       </header>
 
       <section className="hero">
         <div className="heroCopy">
-          <span className="eyebrow">Execution instrument · 2026</span>
+          <span className="eyebrow">Reviewed execution · one contract</span>
           <h1>
             Run skills,<br />
             <em>not wrappers.</em>
@@ -241,8 +241,8 @@ export default function HomePage() {
         </div>
         <div className="heroAside">
           <p>
-            A deliberately small runtime for reviewed LLM and Python Skills.
-            Typed contracts in. Bounded execution. Validated output out.
+            Reviewed Skills enter through one contract. The runtime validates inputs,
+            dispatches LLM or Python, and returns traceable, schema-valid output.
           </p>
           <div className="heroStats">
             <div><strong>{String(skills.length).padStart(2, "0")}</strong><span>skills</span></div>
@@ -260,7 +260,7 @@ export default function HomePage() {
           <div className="sectionHeading">
             <div>
               <span className="kicker">Reviewed catalog</span>
-              <h2>Choose an execution contract.</h2>
+              <h2>Choose a skill. Run the contract.</h2>
             </div>
             <p>{catalogLoading ? "Reading registry…" : `${skills.length} reviewed skills / ${runnerCount} execution paths`}</p>
           </div>
