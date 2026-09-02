@@ -6,6 +6,7 @@ export type LlmRequest = {
   user: string;
   schemaName: string;
   schema: Record<string, unknown>;
+  signal?: AbortSignal;
 };
 
 export type LlmResponse = {
@@ -51,6 +52,8 @@ function providerError(error: unknown) {
 
   if (
     candidate?.name === "APITimeoutError" ||
+    candidate?.name === "APIUserAbortError" ||
+    candidate?.name === "AbortError" ||
     candidate?.code === "ETIMEDOUT" ||
     candidate?.code === "ECONNABORTED"
   ) {
@@ -86,21 +89,24 @@ export function createOpenAICompatibleProvider(): LlmProvider {
     model,
     async generate(request) {
       try {
-        const completion = await client.chat.completions.create({
-          model,
-          messages: [
-            { role: "system", content: request.system },
-            { role: "user", content: request.user },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: request.schemaName,
-              strict: true,
-              schema: request.schema,
+        const completion = await client.chat.completions.create(
+          {
+            model,
+            messages: [
+              { role: "system", content: request.system },
+              { role: "user", content: request.user },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: request.schemaName,
+                strict: true,
+                schema: request.schema,
+              },
             },
           },
-        });
+          { signal: request.signal },
+        );
 
         const text = completion.choices[0]?.message?.content;
         if (!text) {
