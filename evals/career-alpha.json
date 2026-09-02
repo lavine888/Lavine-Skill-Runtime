@@ -1,0 +1,38 @@
+[
+  {
+    "name": "proof without evidence stays self reported",
+    "skill_id": "career-alpha-proof",
+    "input": {
+      "target_role": "AI Product Manager",
+      "resume": "Built an AI workflow and coordinated delivery across a small project team."
+    },
+    "expect": {
+      "claim_confidence": "SELF-REPORTED"
+    }
+  },
+  {
+    "name": "proof with direct artifact can be supported but not verified",
+    "skill_id": "career-alpha-proof",
+    "input": {
+      "target_role": "AI Product Manager",
+      "resume": "Built an AI workflow and coordinated delivery across a small project team.",
+      "evidence": "A public repository, deployment demo, and test evidence are available."
+    },
+    "expect": {
+      "claim_confidence": "SUPPORTED"
+    }
+  },
+  {
+    "name": "positioning keeps future claims separate from present claims",
+    "skill_id": "career-alpha-position",
+    "input": {
+      "target_role": "Agent Engineer",
+      "current_material": "Built an agent workflow, documented failure cases, and published a repository with test evidence.",
+      "channel": "resume"
+    },
+    "expect": {
+      "next_skill": "/proof",
+      "distinct_positioning": true
+    }
+  }
+]
