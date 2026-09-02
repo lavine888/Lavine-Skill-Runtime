@@ -30,6 +30,7 @@ function safeEntrypoint(skill: SkillDefinition) {
 
 function pythonEnv() {
   const env: NodeJS.ProcessEnv = {
+    NODE_ENV: process.env.NODE_ENV || "production",
     PYTHONUTF8: "1",
     PYTHONDONTWRITEBYTECODE: "1",
   };
