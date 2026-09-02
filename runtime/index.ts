@@ -16,6 +16,7 @@ export type {
   ExecuteSkillOptions,
   RunRecord,
   RunStatus,
+  RunnerContext,
   RuntimeType,
   SkillAdapter,
   SkillDefinition,
@@ -27,24 +28,28 @@ export { RuntimeError } from "./errors";
 
 const registry = buildRegistry(skillDefinitions);
 
-async function withTimeout<T>(promise: Promise<T>, timeoutSeconds: number) {
+async function withTimeout<T>(
+  execute: (signal: AbortSignal) => Promise<T>,
+  timeoutSeconds: number,
+) {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
+
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () =>
-        reject(
-          new RuntimeError(
-            "EXECUTION_TIMEOUT",
-            `Skill execution timed out after ${timeoutSeconds}s`,
-            { retryable: true, httpStatus: 504 },
-          ),
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(
+        new RuntimeError(
+          "EXECUTION_TIMEOUT",
+          `Skill execution timed out after ${timeoutSeconds}s`,
+          { retryable: true, httpStatus: 504 },
         ),
-      timeoutSeconds * 1000,
-    );
+      );
+    }, timeoutSeconds * 1000);
   });
 
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([execute(controller.signal), timeout]);
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -101,21 +106,6 @@ export async function executeSkill(
   const typedInput = input as Record<string, unknown>;
   const inputHash = hashInput(input);
   const idempotencyKey = normalizeIdempotencyKey(options.idempotencyKey);
-
-  if (idempotencyKey) {
-    const existing = await defaultRunStore.getByIdempotency(id, idempotencyKey);
-    if (existing) {
-      if (existing.input_hash !== inputHash) {
-        throw new RuntimeError(
-          "IDEMPOTENCY_CONFLICT",
-          "The same idempotency key was already used with different input.",
-          { retryable: false, httpStatus: 409 },
-        );
-      }
-      return existing;
-    }
-  }
-
   const runner = getRunner(skill.manifest.runtime.type);
   const releaseSlot = acquireSkillSlot(skill.manifest);
 
@@ -131,7 +121,26 @@ export async function executeSkill(
     created_at: new Date().toISOString(),
     runner: skill.manifest.runtime.type,
   };
-  await defaultRunStore.create(run);
+
+  let creation;
+  try {
+    creation = await defaultRunStore.create(run);
+  } catch (error) {
+    releaseSlot();
+    throw error;
+  }
+
+  if (!creation.created) {
+    releaseSlot();
+    if (creation.run.input_hash !== inputHash) {
+      throw new RuntimeError(
+        "IDEMPOTENCY_CONFLICT",
+        "The same idempotency key was already used with different input.",
+        { retryable: false, httpStatus: 409 },
+      );
+    }
+    return creation.run;
+  }
 
   const startedMs = Date.now();
   run.status = "running";
@@ -140,7 +149,7 @@ export async function executeSkill(
 
   try {
     const execution = await withTimeout(
-      runner.execute(skill, typedInput),
+      (signal) => runner.execute(skill, typedInput, { signal }),
       skill.manifest.limits.timeout_seconds,
     );
 
