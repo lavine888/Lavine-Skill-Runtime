@@ -1,34 +1,36 @@
 # Runtime Contract
 
-This document defines the operational semantics shared by every hosted Skill.
+This document defines the operational semantics shared by every hosted Skill in the current runnable boundary.
 
 ## Run lifecycle
 
-A Run moves through:
+A Run moves through exactly:
 
 ```text
 queued -> running -> completed
                  -> failed
                  -> timed_out
-                 -> cancelled
 ```
 
-`failed` means execution ended with a classified error. `timed_out` is reserved for Runtime-enforced execution timeout. `cancelled` is reserved for explicit cancellation support and is not yet exposed by the public API.
+- `completed`: execution returned schema-valid output.
+- `failed`: execution ended with a classified non-timeout error.
+- `timed_out`: Runtime timeout fired and cancellation was signalled to the backend.
+
+No queue/cancellation state is part of the current public contract.
 
 ## Idempotency
 
-Clients may send an `Idempotency-Key` header when creating a Run.
+Clients may send `Idempotency-Key` when creating a Run.
 
 - Same Skill + same key + same canonical input returns the original Run.
 - Same Skill + same key + different input fails with `IDEMPOTENCY_CONFLICT`.
-- Keys are bounded to 128 characters.
-- Input identity is represented by a SHA-256 `input_hash` over canonical JSON.
-
-Idempotency is scoped to a Skill in v0.x. Persistent stores must preserve the same uniqueness rule.
+- Keys are limited to 128 characters.
+- Input identity is SHA-256 over canonical JSON.
+- Creation must be atomic inside the RunStore implementation.
 
 ## Error taxonomy
 
-Runtime and provider failures use stable codes:
+Stable Runtime codes:
 
 - `UNKNOWN_SKILL`
 - `INPUT_INVALID`
@@ -46,50 +48,84 @@ Runtime and provider failures use stable codes:
 - `EXECUTION_FAILED`
 - `INTERNAL_ERROR`
 
-Each error also has a `retryable` signal. Clients should not infer retry behavior only from HTTP status.
+Each error also carries `retryable`. Clients should not derive retry policy from message strings.
 
 ## Resource policy
 
-Every Manifest v1 Skill declares:
+Every Manifest v1 Skill declares only limits enforced today:
 
-- `timeout_seconds`
-- `max_input_bytes`
-- `max_output_bytes`
-- `max_concurrency`
-- `max_artifacts`
+```text
+timeout_seconds
+max_input_bytes
+max_output_bytes
+max_concurrency
+```
 
-Runtime Core enforces payload sizes, timeout, and in-process per-Skill concurrency today. `max_artifacts` is part of the contract now so the future Artifact Store and Python/Image runners can enforce it without changing the manifest protocol.
+Runtime validates JSON byte sizes before/after execution and applies in-process per-Skill concurrency admission.
+
+## Runtime types
+
+Manifest v1 supports exactly:
+
+```text
+llm
+python
+```
+
+### LLM
+
+The LLM runner either uses a configured OpenAI-compatible provider or the Skill's deterministic demo adapter. Runtime timeout propagates an AbortSignal into the provider request.
+
+### Python
+
+The Python runner executes one reviewed entrypoint under `skills/<skill-id>/`.
+
+Contract:
+
+```text
+stdin  = one JSON value
+stdout = one JSON value
+stderr = bounded diagnostics
+exit 0 = success
+nonzero exit = EXECUTION_FAILED
+```
+
+The runner uses `shell: false`, a small environment allowlist, path containment, bounded stdout and AbortSignal cancellation. It is not an arbitrary-code sandbox.
 
 ## Source provenance
 
 Every registered Skill pins:
 
-- source repository
-- source path
-- human-readable ref
-- immutable 40-character commit SHA
+- source repository;
+- source path;
+- human-readable ref;
+- immutable 40-character commit SHA.
 
-A Run copies that source reference into its record. Updating a Skill source requires updating the registered Manifest version/provenance explicitly.
+A Run copies this source reference.
 
 ## Manifest compatibility
 
-Runtime v0.x supports Manifest schema major version `1` only. Unknown major versions must fail closed rather than being interpreted heuristically.
+Runtime supports Manifest schema `1.0` for this boundary. Unknown/unsupported runtime shapes fail closed.
 
-Backward-compatible additions should remain within the same major version only when older runtimes can safely ignore or default them. Breaking execution semantics require a new manifest major version.
+Do not extend Manifest v1 with speculative fields. Additions should correspond to executable, tested behavior.
 
 ## Persistence contract
 
 `RunStore` owns persistence. Runtime Core must not depend on a database implementation.
 
-The current `MemoryRunStore` is development-only. A production store must preserve:
+The current `MemoryRunStore` is suitable for local/demo execution. Any replacement must preserve:
 
-- Run ID uniqueness
-- idempotency semantics
-- state transitions
-- source provenance
-- typed errors
-- timestamps and duration
+- Run ID uniqueness;
+- atomic idempotency;
+- state transitions;
+- source provenance;
+- typed errors;
+- timestamps and duration.
 
 ## Logging contract
 
-Do not log full user inputs, full outputs, provider credentials, or raw authorization headers by default. Operational logs should prefer Run IDs, Skill IDs, status, duration, provider/model identifiers, byte counts, and error codes.
+Do not log complete user inputs, outputs, provider credentials or authorization headers by default. Operational logs should prefer Run ID, Skill ID, status, duration, runner/provider/model identifiers, byte counts and error codes.
+
+## Completion boundary
+
+The contract is considered implemented when reviewed LLM and Python Skills both execute through this same lifecycle from API and Workbench, and CI validates contracts, types, tests, evals, build and dependencies.
