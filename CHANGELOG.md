@@ -2,20 +2,31 @@
 
 All notable changes to Lavine Skill Runtime are tracked here.
 
-## Unreleased
+## Unreleased — Runnable Boundary
 
 ### Added
 
-- Abort-aware Runner context so Runtime timeout can propagate cancellation into supported providers.
+- Reviewed Python subprocess runner with fixed repo-local entrypoints, `shell: false`, environment allowlist, JSON stdin/stdout, bounded output, and AbortSignal cancellation.
+- `buffett-moat-rule-check`, a deterministic Python integration of the source Buffett Skill's ordinary-company hard rules on supplied metrics.
+- Typed Workbench support for string, number, integer, boolean, and scalar enum inputs.
 - `/api/v1/health` liveness endpoint.
-- Architecture documentation covering layer ownership, atomic idempotency, timeout cancellation, persistence invariants, and future Python isolation boundaries.
+- Architecture documentation covering layer ownership, atomic idempotency, timeout cancellation, Python trust boundaries, and completion criteria.
 - Concurrent idempotency regression coverage.
+- Runtime tests proving both LLM and Python execution paths.
 
 ### Changed
 
-- MemoryRunStore `create()` now owns atomic idempotent creation semantics inside one JavaScript process.
+- MemoryRunStore `create()` owns atomic idempotent creation semantics inside one JavaScript process.
 - OpenAI-compatible requests receive Runtime `AbortSignal` through SDK request options.
-- Contribution guidance now requires `npm ci`, behavior evals, and explicit concurrency/cancellation review for Runtime changes.
+- Manifest v1 now describes only implemented runtime types: `llm` and `python`.
+- Skill scaffolding now generates runnable LLM or Python package shapes only.
+- Documentation is converged around the current runnable boundary instead of speculative roadmap features.
+
+### Removed
+
+- Unimplemented `image` runtime from the public Manifest/type surface.
+- Unimplemented `cancelled` Run state.
+- Unenforced artifact declarations and artifact-count limits.
 
 ## 0.3.1
 
@@ -23,7 +34,7 @@ All notable changes to Lavine Skill Runtime are tracked here.
 
 - Stable Runtime error taxonomy with retryability semantics.
 - `Idempotency-Key` support and canonical SHA-256 input hashes.
-- Manifest-level input/output/concurrency/artifact resource limits.
+- Manifest-level input/output/concurrency resource limits.
 - In-process per-Skill concurrency enforcement.
 - Provider failure normalization for auth, rate-limit, timeout, and generic failures.
 - Behavior eval fixtures for Career Alpha integrity baselines.
@@ -34,7 +45,7 @@ All notable changes to Lavine Skill Runtime are tracked here.
 
 - Direct dependency versions are pinned exactly.
 - Runtime API distinguishes pre-run contract errors from created Run failures.
-- Manifest v1 now requires explicit bounded resource policy.
+- Manifest v1 requires explicit bounded resource policy.
 
 ## 0.3.0
 
