@@ -10,7 +10,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run",
+    "test": "vitest run tests/runtime.test.ts",
     "evals": "vitest run tests/evals.test.ts",
     "typecheck": "tsc --noEmit",
     "skill": "node scripts/skills.mjs",
