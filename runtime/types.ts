@@ -83,11 +83,16 @@ export type RunnerExecution = {
   model?: string;
 };
 
+export type RunnerContext = {
+  signal: AbortSignal;
+};
+
 export type SkillRunner = {
   type: RuntimeType;
   execute(
     skill: SkillDefinition,
     input: Record<string, unknown>,
+    context: RunnerContext,
   ): Promise<RunnerExecution>;
 };
 
