@@ -1,10 +1,13 @@
 import type { RunRecord } from "./types";
 
+export type CreateRunResult =
+  | { created: true; run: RunRecord }
+  | { created: false; run: RunRecord };
+
 export interface RunStore {
-  create(run: RunRecord): Promise<void>;
+  create(run: RunRecord): Promise<CreateRunResult>;
   update(run: RunRecord): Promise<void>;
   get(id: string): Promise<RunRecord | undefined>;
-  getByIdempotency(skillId: string, key: string): Promise<RunRecord | undefined>;
   list(): Promise<RunRecord[]>;
 }
 
@@ -17,8 +20,20 @@ const memoryRuns = globalThis.__lavineSkillRuns ?? new Map<string, RunRecord>();
 globalThis.__lavineSkillRuns = memoryRuns;
 
 export class MemoryRunStore implements RunStore {
-  async create(run: RunRecord) {
+  async create(run: RunRecord): Promise<CreateRunResult> {
+    if (run.idempotency_key) {
+      for (const existing of memoryRuns.values()) {
+        if (
+          existing.skill_id === run.skill_id &&
+          existing.idempotency_key === run.idempotency_key
+        ) {
+          return { created: false, run: structuredClone(existing) };
+        }
+      }
+    }
+
     memoryRuns.set(run.id, structuredClone(run));
+    return { created: true, run: structuredClone(run) };
   }
 
   async update(run: RunRecord) {
@@ -28,15 +43,6 @@ export class MemoryRunStore implements RunStore {
   async get(id: string) {
     const run = memoryRuns.get(id);
     return run ? structuredClone(run) : undefined;
-  }
-
-  async getByIdempotency(skillId: string, key: string) {
-    for (const run of memoryRuns.values()) {
-      if (run.skill_id === skillId && run.idempotency_key === key) {
-        return structuredClone(run);
-      }
-    }
-    return undefined;
   }
 
   async list() {
