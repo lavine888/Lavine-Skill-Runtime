@@ -142,7 +142,13 @@ async function initSkill(args) {
     input_schema: "./input.schema.json",
     output_schema: "./output.schema.json",
     artifacts: ["json"],
-    limits: { timeout_seconds: 120 },
+    limits: {
+      timeout_seconds: 120,
+      max_input_bytes: 262144,
+      max_output_bytes: 1048576,
+      max_concurrency: 2,
+      max_artifacts: 8,
+    },
     tags: [],
   };
 
