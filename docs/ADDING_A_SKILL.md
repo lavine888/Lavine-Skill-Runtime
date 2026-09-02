@@ -2,9 +2,7 @@
 
 A Skill should extend the catalog without adding business-specific branches to Runtime Core.
 
-## 1. Start from the CLI
-
-For a reviewed upstream Skill, scaffold the contract with an immutable source commit:
+## 1. Scaffold from the CLI
 
 ```bash
 npm run skill:init -- \
@@ -15,86 +13,55 @@ npm run skill:init -- \
   llm
 ```
 
-Then validate the catalog:
+Use `python` as the final argument for a Python Skill.
+
+Then run:
 
 ```bash
 npm run skill:validate
 npm run skill:list
 ```
 
-The generated files are a scaffold, not an approval. Review schemas, behavior, provenance, runtime limits, and the adapter before registration.
+The scaffold is not approval. Review the source pin, schemas, limits, adapter and any Python entrypoint before registration.
 
-## 2. Skill package
+## 2. Package shape
+
+LLM Skill:
 
 ```text
 skills/<skill-id>/
 ├── manifest.json
 ├── input.schema.json
 ├── output.schema.json
-├── prompt.ts        # LLM Skills
+├── prompt.ts
 └── adapter.ts
 ```
 
-## 3. Manifest rules
+Python Skill:
 
-The canonical contract is `runtime/manifest.schema.json`.
+```text
+skills/<skill-id>/
+├── manifest.json
+├── input.schema.json
+├── output.schema.json
+├── adapter.ts
+└── runner.py
+```
+
+## 3. Manifest contract
+
+The canonical schema is `runtime/manifest.schema.json`.
+
+LLM runtime:
 
 ```json
 {
-  "schema_version": "1.0",
-  "id": "example-skill",
-  "name": "Example Skill",
-  "description": "What outcome this Skill produces.",
-  "version": "0.1.0",
-  "source": {
-    "repo": "owner/source-repo",
-    "path": "skills/example/SKILL.md",
-    "ref": "main",
-    "commit": "0123456789abcdef0123456789abcdef01234567"
-  },
-  "runtime": {
-    "type": "llm",
-    "adapter": "example-skill"
-  },
-  "input_schema": "./input.schema.json",
-  "output_schema": "./output.schema.json",
-  "artifacts": ["json"],
-  "limits": {
-    "timeout_seconds": 120,
-    "max_input_bytes": 262144,
-    "max_output_bytes": 1048576,
-    "max_concurrency": 2,
-    "max_artifacts": 8
-  }
+  "type": "llm",
+  "adapter": "example-skill"
 }
 ```
 
-Required invariants:
-
-- `manifest.id` is kebab-case and globally unique;
-- source `commit` is a full immutable 40-character SHA;
-- `manifest.runtime.adapter` equals `adapter.id`;
-- `manifest.runtime.type` equals `adapter.runtime`;
-- inputs and outputs compile as JSON Schema 2020-12;
-- resource limits are explicit and bounded;
-- unsupported runtime types fail closed until a Runner is registered;
-- SKILL.md is reviewed instruction/data, never arbitrary executable shell code.
-
-Unknown Manifest major versions must fail closed.
-
-## 4. Runtime contracts
-
-Manifest v1 recognizes:
-
-### LLM
-
-```json
-{ "type": "llm", "adapter": "example-skill" }
-```
-
-Supported today.
-
-### Python
+Python runtime:
 
 ```json
 {
@@ -104,130 +71,136 @@ Supported today.
 }
 ```
 
-Protocol-ready, but no Python Runner is registered yet. Do not register it as runnable until the runner enforces the security model.
+Only `llm` and `python` are valid in Manifest v1 because those are the execution paths implemented today.
 
-### Image
+Every manifest must also pin:
 
-```json
-{ "type": "image", "adapter": "example-image-skill" }
+```text
+source.repo
+source.path
+source.ref
+source.commit   # full 40-character SHA
 ```
 
-Protocol-ready, but no Image Runner is registered yet.
-
-## 5. Input schema
-
-Prefer small explicit contracts. Titles/descriptions matter because Workbench forms are schema-generated.
+and declare enforced limits:
 
 ```json
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["goal"],
-  "properties": {
-    "goal": {
-      "type": "string",
-      "minLength": 2,
-      "title": "Goal"
-    }
+  "limits": {
+    "timeout_seconds": 120,
+    "max_input_bytes": 262144,
+    "max_output_bytes": 1048576,
+    "max_concurrency": 2
   }
 }
 ```
 
-## 6. Output schema
+Do not add policy fields that Runtime does not enforce.
 
-Outputs are product contracts, not chat transcripts. Prefer stable keys, bounded arrays, explicit enums, and `additionalProperties: false` on structured objects.
+## 4. Schemas
 
-Large files should become Artifacts once ArtifactStore lands instead of being embedded in JSON.
+Inputs and outputs must compile as JSON Schema 2020-12.
 
-## 7. LLM adapter
+Workbench currently supports schema-generated `string`, `number`, `integer`, `boolean`, and scalar `enum` inputs. Prefer explicit small contracts and `additionalProperties: false` for structured objects.
 
-An adapter owns Skill-specific behavior. Runner owns execution mechanics. Provider owns vendor access.
+Outputs should be stable product JSON, not free-form terminal/chat transcripts.
+
+## 5. LLM adapter
+
+An LLM adapter owns Skill-specific prompting and deterministic demo behavior:
 
 ```ts
-export const exampleAdapter: SkillAdapter = {
+export const exampleAdapter: LlmSkillAdapter = {
   id: "example-skill",
   runtime: "llm",
   responseSchemaName: "example_result",
   buildMessages(input) {
     return {
       system: "Reviewed system contract...",
-      user: `Goal: ${String(input.goal || "")}`,
+      user: JSON.stringify(input),
     };
   },
   demo(input) {
-    return { result: String(input.goal || "") };
+    return { summary: String(input.goal || "") };
   },
 };
 ```
 
-Never add business dispatch to Core:
+Provider access belongs in the LLM runner/provider layer, not in the Skill.
+
+## 6. Python adapter and entrypoint
+
+The Python adapter only declares identity/runtime:
 
 ```ts
-if (skill.id === "example-skill") {
-  // design failure
-}
+export const examplePythonAdapter: PythonSkillAdapter = {
+  id: "example-python-skill",
+  runtime: "python",
+};
 ```
 
-## 8. Register the Skill
+The entrypoint contract is deliberately narrow:
+
+```text
+stdin  = one JSON value
+stdout = one JSON value
+stderr = diagnostics only
+exit 0 = success
+nonzero exit = execution failure
+```
+
+The entrypoint must live inside its own Skill directory. Runtime invokes it with `shell: false`, a small environment allowlist, bounded stdout and cancellation/timeout support.
+
+Do not register arbitrary uploaded Python or user-selected commands.
+
+## 7. Register
 
 Add the reviewed `SkillDefinition` to `skills/registry.ts`.
 
-Editing the catalog is expected. Editing Runtime Core to understand the new business domain is not.
+Editing the catalog boundary is expected. Adding business dispatch such as this is not:
 
-## 9. Contract and behavior coverage
-
-At minimum verify:
-
-- `npm run skill:validate` passes;
-- the Skill appears in `listSkills()`;
-- source provenance is pinned;
-- invalid input is rejected before execution;
-- resource policy is declared;
-- deterministic demo execution completes;
-- demo output passes the same output schema as provider-backed execution;
-- unsupported runners are never silently substituted;
-- high-risk semantic invariants have eval fixtures when applicable.
-
-For judgment-heavy Skills, add fixtures under `evals/` and run:
-
-```bash
-npm run evals
+```ts
+if (skill.id === "example-skill") {
+  // wrong layer
+}
 ```
 
-Schema-valid output is not automatically behaviorally correct.
+## 8. Required coverage
 
-## 10. Operational semantics
+Before merge:
 
-New Skills inherit the shared Runtime contract for:
+- `npm run skill:validate` passes;
+- source commit is pinned;
+- invalid input fails before execution;
+- the Skill runs through its generic runner;
+- returned output passes the declared output schema;
+- idempotency/resource/lifecycle semantics remain unchanged;
+- judgment-heavy LLM behavior has eval fixtures when appropriate.
 
-- idempotency;
-- typed errors and retryability;
-- timeout/status semantics;
-- resource limits;
-- provenance;
-- logging/privacy boundaries.
+Run the full local contract:
 
-See `docs/RUNTIME_CONTRACT.md` and `docs/SECURITY_MODEL.md`.
+```bash
+npm ci
+npm run skill:validate
+npm run typecheck
+npm test
+npm run evals
+npm run build
+```
 
 ## Definition of done
 
 ```text
-manifest validation
-→ source provenance
-→ input validation + input limits
+manifest
+→ input schema
 → registry
-→ idempotency
-→ concurrency admission
-→ runner dispatch
-→ provider / execution
-→ timeout policy
-→ output validation + output limits
+→ idempotency + concurrency admission
+→ LLM or Python runner
+→ timeout/cancellation
+→ output schema
 → RunStore
 → API
-→ schema-generated web form
-→ generic result renderer
-→ behavior evals where needed
+→ schema-generated Workbench
 ```
 
-must work without introducing business-specific logic into Runtime Core.
+must work without teaching Runtime Core the Skill's business domain.
