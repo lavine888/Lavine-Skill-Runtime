@@ -22,7 +22,7 @@ npm run skill:validate
 npm run skill:list
 ```
 
-The generated files are a scaffold, not an approval. Review the schemas, adapter behavior, and source revision before registration.
+The generated files are a scaffold, not an approval. Review schemas, behavior, provenance, runtime limits, and the adapter before registration.
 
 ## 2. Skill package
 
@@ -31,13 +31,13 @@ skills/<skill-id>/
 ├── manifest.json
 ├── input.schema.json
 ├── output.schema.json
-├── prompt.ts        # LLM skills
+├── prompt.ts        # LLM Skills
 └── adapter.ts
 ```
 
 ## 3. Manifest rules
 
-The manifest defines identity, source provenance, and execution policy.
+The canonical contract is `runtime/manifest.schema.json`.
 
 ```json
 {
@@ -60,12 +60,14 @@ The manifest defines identity, source provenance, and execution policy.
   "output_schema": "./output.schema.json",
   "artifacts": ["json"],
   "limits": {
-    "timeout_seconds": 120
+    "timeout_seconds": 120,
+    "max_input_bytes": 262144,
+    "max_output_bytes": 1048576,
+    "max_concurrency": 2,
+    "max_artifacts": 8
   }
 }
 ```
-
-The canonical manifest contract is `runtime/manifest.schema.json`.
 
 Required invariants:
 
@@ -74,24 +76,23 @@ Required invariants:
 - `manifest.runtime.adapter` equals `adapter.id`;
 - `manifest.runtime.type` equals `adapter.runtime`;
 - inputs and outputs compile as JSON Schema 2020-12;
-- `timeout_seconds` is enforced by Runtime Core;
+- resource limits are explicit and bounded;
 - unsupported runtime types fail closed until a Runner is registered;
 - SKILL.md is reviewed instruction/data, never arbitrary executable shell code.
 
+Unknown Manifest major versions must fail closed.
+
 ## 4. Runtime contracts
 
-Manifest v1 recognizes three runtime types:
+Manifest v1 recognizes:
 
 ### LLM
 
 ```json
-{
-  "type": "llm",
-  "adapter": "example-skill"
-}
+{ "type": "llm", "adapter": "example-skill" }
 ```
 
-Supported in v0.3.
+Supported today.
 
 ### Python
 
@@ -103,22 +104,19 @@ Supported in v0.3.
 }
 ```
 
-The contract is schema-ready, but v0.3 intentionally has no Python Runner. Such a Skill must not be registered as runnable yet.
+Protocol-ready, but no Python Runner is registered yet. Do not register it as runnable until the runner enforces the security model.
 
 ### Image
 
 ```json
-{
-  "type": "image",
-  "adapter": "example-image-skill"
-}
+{ "type": "image", "adapter": "example-image-skill" }
 ```
 
-The contract is schema-ready, but no Image Runner is registered yet.
+Protocol-ready, but no Image Runner is registered yet.
 
 ## 5. Input schema
 
-Prefer small, explicit contracts. Titles and descriptions matter because the web workbench generates forms from the schema.
+Prefer small explicit contracts. Titles/descriptions matter because Workbench forms are schema-generated.
 
 ```json
 {
@@ -138,13 +136,13 @@ Prefer small, explicit contracts. Titles and descriptions matter because the web
 
 ## 6. Output schema
 
-Outputs are product contracts, not chat transcripts.
+Outputs are product contracts, not chat transcripts. Prefer stable keys, bounded arrays, explicit enums, and `additionalProperties: false` on structured objects.
 
-Prefer stable object keys, bounded arrays, explicit status enums, `additionalProperties: false`, and artifacts for large files once ArtifactStore lands.
+Large files should become Artifacts once ArtifactStore lands instead of being embedded in JSON.
 
 ## 7. LLM adapter
 
-An adapter owns Skill-specific behavior. The Runner owns execution mechanics and the Provider owns vendor access.
+An adapter owns Skill-specific behavior. Runner owns execution mechanics. Provider owns vendor access.
 
 ```ts
 export const exampleAdapter: SkillAdapter = {
@@ -163,11 +161,11 @@ export const exampleAdapter: SkillAdapter = {
 };
 ```
 
-Do not add this to Core:
+Never add business dispatch to Core:
 
 ```ts
 if (skill.id === "example-skill") {
-  // business logic
+  // design failure
 }
 ```
 
@@ -175,9 +173,9 @@ if (skill.id === "example-skill") {
 
 Add the reviewed `SkillDefinition` to `skills/registry.ts`.
 
-This is the catalog boundary. Editing the catalog is expected; editing Runtime Core for a business domain is a design failure.
+Editing the catalog is expected. Editing Runtime Core to understand the new business domain is not.
 
-## 9. Contract coverage
+## 9. Contract and behavior coverage
 
 At minimum verify:
 
@@ -185,25 +183,51 @@ At minimum verify:
 - the Skill appears in `listSkills()`;
 - source provenance is pinned;
 - invalid input is rejected before execution;
+- resource policy is declared;
 - deterministic demo execution completes;
 - demo output passes the same output schema as provider-backed execution;
-- no unsupported Runner is silently substituted.
+- unsupported runners are never silently substituted;
+- high-risk semantic invariants have eval fixtures when applicable.
+
+For judgment-heavy Skills, add fixtures under `evals/` and run:
+
+```bash
+npm run evals
+```
+
+Schema-valid output is not automatically behaviorally correct.
+
+## 10. Operational semantics
+
+New Skills inherit the shared Runtime contract for:
+
+- idempotency;
+- typed errors and retryability;
+- timeout/status semantics;
+- resource limits;
+- provenance;
+- logging/privacy boundaries.
+
+See `docs/RUNTIME_CONTRACT.md` and `docs/SECURITY_MODEL.md`.
 
 ## Definition of done
 
 ```text
 manifest validation
 → source provenance
-→ input validation
+→ input validation + input limits
 → registry
+→ idempotency
+→ concurrency admission
 → runner dispatch
 → provider / execution
 → timeout policy
-→ output validation
+→ output validation + output limits
 → RunStore
 → API
 → schema-generated web form
 → generic result renderer
+→ behavior evals where needed
 ```
 
 must work without introducing business-specific logic into Runtime Core.
