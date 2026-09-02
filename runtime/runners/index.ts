@@ -1,8 +1,12 @@
 import { RuntimeError } from "../errors";
 import type { RuntimeType, SkillRunner } from "../types";
 import { llmRunner } from "./llm";
+import { pythonRunner } from "./python";
 
-const runners = new Map<RuntimeType, SkillRunner>([["llm", llmRunner]]);
+const runners = new Map<RuntimeType, SkillRunner>([
+  ["llm", llmRunner],
+  ["python", pythonRunner],
+]);
 
 export function getRunner(type: RuntimeType) {
   const runner = runners.get(type);
