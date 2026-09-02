@@ -84,15 +84,18 @@ async function validateSkills() {
   }
 }
 
-function llmAdapterTemplate(id) {
-  const symbol = id
+function symbolFor(id) {
+  return id
     .replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
     .replace(/^[a-z]/, (letter) => letter.toLowerCase());
+}
 
+function llmAdapterTemplate(id) {
+  const symbol = symbolFor(id);
   return [
-    'import type { SkillAdapter } from "../../runtime/types";',
+    'import type { LlmSkillAdapter } from "../../runtime/types";',
     "",
-    `export const ${symbol}Adapter: SkillAdapter = {`,
+    `export const ${symbol}Adapter: LlmSkillAdapter = {`,
     `  id: "${id}",`,
     '  runtime: "llm",',
     `  responseSchemaName: "${id.replaceAll("-", "_")}_output",`,
@@ -110,16 +113,40 @@ function llmAdapterTemplate(id) {
   ].join("\n");
 }
 
+function pythonAdapterTemplate(id) {
+  const symbol = symbolFor(id);
+  return [
+    'import type { PythonSkillAdapter } from "../../runtime/types";',
+    "",
+    `export const ${symbol}Adapter: PythonSkillAdapter = {`,
+    `  id: "${id}",`,
+    '  runtime: "python",',
+    "};",
+    "",
+  ].join("\n");
+}
+
+function pythonRunnerTemplate() {
+  return [
+    "import json",
+    "import sys",
+    "",
+    "payload = json.load(sys.stdin)",
+    'json.dump({"summary": "Python skill received input: " + json.dumps(payload, ensure_ascii=False)}, sys.stdout, ensure_ascii=False)',
+    "",
+  ].join("\n");
+}
+
 async function initSkill(args) {
   const [id, repo, sourcePath, commit, runtime = "llm"] = args;
   if (!id || !repo || !sourcePath || !commit) {
     throw new Error(
-      "Usage: npm run skill:init -- <id> <owner/repo> <source-path> <40-char-commit> [llm|python|image]",
+      "Usage: npm run skill:init -- <id> <owner/repo> <source-path> <40-char-commit> [llm|python]",
     );
   }
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error("Skill id must be kebab-case.");
   if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error("Source commit must be a 40-character lowercase SHA.");
-  if (!["llm", "python", "image"].includes(runtime)) throw new Error("Unsupported runtime type.");
+  if (!["llm", "python"].includes(runtime)) throw new Error("Unsupported runtime type. Use llm or python.");
 
   const dir = path.join(skillsRoot, id);
   await mkdir(dir, { recursive: false });
@@ -127,9 +154,7 @@ async function initSkill(args) {
   const runtimeSpec =
     runtime === "python"
       ? { type: "python", adapter: id, entrypoint: "runner.py" }
-      : runtime === "image"
-        ? { type: "image", adapter: id }
-        : { type: "llm", adapter: id };
+      : { type: "llm", adapter: id };
 
   const manifest = {
     schema_version: "1.0",
@@ -141,13 +166,11 @@ async function initSkill(args) {
     runtime: runtimeSpec,
     input_schema: "./input.schema.json",
     output_schema: "./output.schema.json",
-    artifacts: ["json"],
     limits: {
       timeout_seconds: 120,
       max_input_bytes: 262144,
       max_output_bytes: 1048576,
-      max_concurrency: 2,
-      max_artifacts: 8,
+      max_concurrency: 2
     },
     tags: [],
   };
@@ -176,10 +199,16 @@ async function initSkill(args) {
   await writeFile(path.join(dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   await writeFile(path.join(dir, "input.schema.json"), `${JSON.stringify(inputSchema, null, 2)}\n`);
   await writeFile(path.join(dir, "output.schema.json"), `${JSON.stringify(outputSchema, null, 2)}\n`);
-  if (runtime === "llm") await writeFile(path.join(dir, "adapter.ts"), llmAdapterTemplate(id));
+  await writeFile(
+    path.join(dir, "adapter.ts"),
+    runtime === "python" ? pythonAdapterTemplate(id) : llmAdapterTemplate(id),
+  );
+  if (runtime === "python") {
+    await writeFile(path.join(dir, "runner.py"), pythonRunnerTemplate());
+  }
 
   console.log(`Created ${path.relative(root, dir)}.`);
-  console.log("Review the generated contract, add the adapter for non-LLM runtimes, then register it in skills/registry.ts.");
+  console.log("Review the generated contract and register it in skills/registry.ts.");
 }
 
 const [command = "list", ...args] = process.argv.slice(2);
