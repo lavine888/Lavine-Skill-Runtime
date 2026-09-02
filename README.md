@@ -14,23 +14,25 @@ Lavine Skill Runtime turns reviewed Agent Skills into schema-driven web/API prod
 
 > **Adding the next Skill should extend the catalog, not rewrite the Runtime Core.**
 
-## v0.3 status
+## v0.3.1 status
 
-Two Career Alpha skills run through the same LLM runner:
+Two Career Alpha Skills currently run through the same LLM runner:
 
 | Skill | Source | Runtime | Status |
 | --- | --- | --- | --- |
 | `career-alpha-proof` | `career-alpha/skills/proof/SKILL.md` | LLM | Runnable |
 | `career-alpha-position` | `career-alpha/skills/position/SKILL.md` | LLM | Runnable |
 
-v0.3 hardens the runtime around six boundaries:
+v0.3.1 hardens the runtime around operational semantics that future Python/Image runners can reuse:
 
-- **Manifest contract** — every Skill manifest is validated against JSON Schema 2020-12.
-- **Runner abstraction** — Core dispatches by runtime type; only registered runners can execute.
-- **Provider abstraction** — LLM execution is isolated behind an OpenAI-compatible provider adapter.
-- **RunStore abstraction** — in-memory storage is replaceable without changing execution logic.
-- **Source provenance** — every registered Skill pins an upstream ref and immutable commit SHA.
-- **Skill tooling** — CLI commands list, validate, and scaffold Skill contracts.
+- **Manifest contract** — JSON Schema 2020-12, immutable source commit, explicit resource policy.
+- **Runner abstraction** — only registered runtime types can execute; unsupported types fail closed.
+- **Provider abstraction** — OpenAI-compatible LLM execution is isolated from Core.
+- **RunStore abstraction** — persistence is replaceable without changing execution logic.
+- **Idempotency** — same Skill + key + input replays the original Run; conflicting reuse fails.
+- **Typed errors** — stable error codes plus retryability instead of one generic failure bucket.
+- **Resource limits** — timeout, input/output bytes, concurrency, and artifact-count policy.
+- **Behavior evals** — Skill integrity assertions live beside code tests.
 
 ## Architecture
 
@@ -53,15 +55,15 @@ manifest.json ──► Manifest Schema
               ▼
         Runner Registry
               │
-        ┌─────┴─────┐
-        │           │
-     LLM Runner   future Python/Image runners
+        ┌─────┴──────────────┐
+        │                    │
+     LLM Runner       future Python/Image
         │
         ▼
  OpenAI-compatible Provider
         │
         ▼
- validated output
+ schema + size validation
         │
         ▼
           RunStore
@@ -70,7 +72,7 @@ manifest.json ──► Manifest Schema
        Web / API
 ```
 
-The Runtime Core does not import OpenAI, Career Alpha prompts, or individual Skill implementations. It validates, dispatches, tracks lifecycle, and persists through interfaces.
+Core coordinates contracts and lifecycle. It does not contain Career Alpha business logic or vendor-specific model calls.
 
 ## Run lifecycle
 
@@ -83,16 +85,72 @@ running
   └──► timed_out
 ```
 
-`cancelled` is reserved in the status contract for the future worker/queue layer.
+`cancelled` is already reserved in the contract for the future worker/queue layer.
 
-A run records:
+A Run records:
 
-- Skill ID and version;
-- pinned source repository, ref, path, and commit;
-- runner, provider, and model;
+- Skill ID/version and immutable upstream provenance;
+- canonical SHA-256 `input_hash`;
+- optional `idempotency_key`;
+- runner/provider/model;
 - timestamps and duration;
-- input/output;
-- error code and failure state.
+- typed `error_code` and `retryable` signal;
+- validated output.
+
+## Idempotent API runs
+
+```bash
+curl -X POST http://localhost:3000/api/skills/career-alpha-proof/run \
+  -H "content-type: application/json" \
+  -H "idempotency-key: proof-demo-001" \
+  -d '{
+    "target_role":"AI Product Manager",
+    "resume":"Built an AI agent product and coordinated delivery.",
+    "evidence":"GitHub repo, demo deployment, benchmark notes"
+  }'
+```
+
+Reusing `proof-demo-001` with the same canonical input returns the original Run. Reusing it with different input returns `IDEMPOTENCY_CONFLICT`.
+
+## Error contract
+
+Examples include:
+
+```text
+INPUT_INVALID
+INPUT_TOO_LARGE
+IDEMPOTENCY_CONFLICT
+CONCURRENCY_LIMIT
+RUNNER_UNAVAILABLE
+PROVIDER_AUTH_FAILED
+PROVIDER_RATE_LIMITED
+PROVIDER_TIMEOUT
+OUTPUT_INVALID
+EXECUTION_TIMEOUT
+EXECUTION_FAILED
+```
+
+Clients should use both `error_code` and `retryable` rather than parsing error strings.
+
+See [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md).
+
+## Resource policy
+
+Each Skill manifest declares:
+
+```json
+{
+  "limits": {
+    "timeout_seconds": 120,
+    "max_input_bytes": 262144,
+    "max_output_bytes": 1048576,
+    "max_concurrency": 4,
+    "max_artifacts": 4
+  }
+}
+```
+
+Payload size, timeout, and in-process concurrency are enforced today. `max_artifacts` is part of the contract ahead of ArtifactStore/Python/Image support.
 
 ## Skill contract
 
@@ -101,35 +159,28 @@ skills/<skill-id>/
 ├── manifest.json
 ├── input.schema.json
 ├── output.schema.json
-├── prompt.ts        # LLM skills
+├── prompt.ts        # LLM Skills
 └── adapter.ts
 ```
 
-The v1 manifest supports runtime contracts for:
+Manifest v1 recognizes:
 
 ```text
 llm
-python  # schema-ready, runner not registered yet
-image   # schema-ready, runner not registered yet
+python  # protocol-ready, runner not registered yet
+image   # protocol-ready, runner not registered yet
 ```
 
-Unsupported runtime types fail closed until their runner is explicitly registered.
+Unknown manifest major versions and unavailable runners fail closed.
 
 ## Skill CLI
 
-List contracts:
-
 ```bash
 npm run skill:list
-```
-
-Validate every manifest and JSON Schema:
-
-```bash
 npm run skill:validate
 ```
 
-Scaffold a new Skill contract:
+Scaffold a reviewed Skill contract:
 
 ```bash
 npm run skill:init -- \
@@ -140,11 +191,23 @@ npm run skill:init -- \
   llm
 ```
 
-The generated contract still requires review and registration in `skills/registry.ts`.
+Generated contracts still require human review and explicit registration in `skills/registry.ts`.
+
+## Behavior evals
+
+```bash
+npm run evals
+```
+
+Current fixtures establish integrity baselines such as:
+
+- unsupported career claims stay `SELF-REPORTED`;
+- supplied evidence may raise a claim to `SUPPORTED`, not automatically `VERIFIED`;
+- future positioning stays separate from present-tense claims.
+
+These complement schema/unit tests: a Skill can be structurally valid and still become behaviorally worse.
 
 ## Provider configuration
-
-The preferred configuration is provider-neutral and works with OpenAI-compatible endpoints:
 
 ```env
 LLM_API_KEY=
@@ -155,7 +218,7 @@ LLM_PROVIDER=openai-compatible
 
 `OPENAI_API_KEY` and `OPENAI_MODEL` remain backward-compatible aliases.
 
-Without a provider key, reviewed LLM Skills use deterministic demo adapters while still passing through the same manifest → registry → runner → RunStore → output-validation path.
+Without a provider key, reviewed LLM Skills use deterministic demo adapters while still traversing manifest → registry → runner → RunStore → output validation.
 
 ## Quick start
 
@@ -178,17 +241,15 @@ POST /api/skills/:id/run
 GET  /api/runs/:runId
 ```
 
-Example:
+## Security and privacy
 
-```bash
-curl -X POST http://localhost:3000/api/skills/career-alpha-proof/run \
-  -H "content-type: application/json" \
-  -d '{
-    "target_role":"AI Product Manager",
-    "resume":"Built an AI agent product and coordinated delivery.",
-    "evidence":"GitHub repo, demo deployment, benchmark notes"
-  }'
-```
+Runtime treats user input/provider output as untrusted and does not claim safe arbitrary-code execution. Full user payloads must not be written to logs by default. When a model provider is configured, relevant Skill input is sent to that provider.
+
+Read:
+
+- [`SECURITY.md`](SECURITY.md)
+- [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md)
+- [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md)
 
 ## CI contract
 
@@ -197,20 +258,22 @@ Every push must pass:
 ```text
 Skill manifest/schema validation
 TypeScript typecheck
-Runtime tests
+Runtime + behavior tests
 Next.js production build
 Production dependency security audit
 ```
 
+Direct dependency versions are pinned exactly and Node/npm versions are declared in `package.json`. A committed npm lockfile is the remaining step for fully reproducible dependency resolution.
+
 ## Current boundaries
 
-v0.3 intentionally does **not** include:
+v0.3.1 intentionally does **not** include:
 
 - marketplace or arbitrary creator uploads;
 - billing / credits;
 - arbitrary third-party code execution;
 - persistent Postgres RunStore;
-- queue / worker orchestration;
+- queue / distributed worker orchestration;
 - Python runner;
 - image runner;
 - Docker sandbox;
@@ -220,15 +283,15 @@ v0.3 intentionally does **not** include:
 
 ### v0.4 — Python Runner
 
-Run code-backed Skills through the same Core. The first target is a reviewed, deterministic Quant Skill such as Buffett Moat Screener.
+Run a reviewed deterministic code-backed Skill through the same Manifest, idempotency, resource, error, RunStore, and provenance contracts. First target: Buffett Moat Screener.
 
 ### v0.5 — Artifact Store
 
-Move file outputs such as JSON, CSV, Parquet, Markdown, PNG and ZIP behind an `ArtifactStore` interface.
+Add checksummed JSON/CSV/Parquet/Markdown/PNG/ZIP artifacts behind an `ArtifactStore` interface.
 
 ### v0.6 — Persistent Runs + observability
 
-Add PostgreSQL-backed RunStore, run history, token/cost metadata, structured errors, and operational metrics.
+Add PostgreSQL RunStore, retention policy, structured operational logs, token/cost metadata, and metrics without logging raw user payloads.
 
 ---
 
