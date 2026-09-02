@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Buffett Moat Rule Check Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "symbol",
+    "roe_latest_pct",
+    "roe_10y_min_pct",
+    "gross_margin_latest_pct",
+    "gross_margin_volatility_pp",
+    "net_profit_positive",
+    "capex_to_net_profit_pct",
+    "debt_to_net_profit_ratio",
+    "pe_ttm"
+  ],
+  "properties": {
+    "symbol": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "title": "Symbol"
+    },
+    "roe_latest_pct": {
+      "type": "number",
+      "title": "Latest ROE (%)"
+    },
+    "roe_10y_min_pct": {
+      "type": "number",
+      "title": "Minimum ROE in latest 10 years (%)"
+    },
+    "gross_margin_latest_pct": {
+      "type": "number",
+      "title": "Latest gross margin (%)"
+    },
+    "gross_margin_volatility_pp": {
+      "type": "number",
+      "minimum": 0,
+      "title": "10-year gross-margin volatility (percentage points)"
+    },
+    "net_profit_positive": {
+      "type": "boolean",
+      "title": "Net profit is positive"
+    },
+    "capex_to_net_profit_pct": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Absolute CapEx / net profit (%)"
+    },
+    "debt_to_net_profit_ratio": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Long-term interest-bearing debt / net profit"
+    },
+    "pe_ttm": {
+      "type": "number",
+      "title": "Point-in-time TTM PE"
+    }
+  }
+}
