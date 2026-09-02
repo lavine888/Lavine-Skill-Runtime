@@ -33,6 +33,7 @@ v0.3.1 hardens the runtime around operational semantics that future Python/Image
 - **Typed errors** — stable error codes plus retryability instead of one generic failure bucket.
 - **Resource limits** — timeout, input/output bytes, concurrency, and artifact-count policy.
 - **Behavior evals** — Skill integrity assertions live beside code tests.
+- **Reproducible install** — exact direct versions, committed npm lockfile, Node/npm contract, and CI via `npm ci`.
 
 ## Architecture
 
@@ -87,20 +88,12 @@ running
 
 `cancelled` is already reserved in the contract for the future worker/queue layer.
 
-A Run records:
+A Run records Skill/version/provenance, SHA-256 `input_hash`, optional `idempotency_key`, runner/provider/model, timestamps/duration, typed errors, retryability, and validated output.
 
-- Skill ID/version and immutable upstream provenance;
-- canonical SHA-256 `input_hash`;
-- optional `idempotency_key`;
-- runner/provider/model;
-- timestamps and duration;
-- typed `error_code` and `retryable` signal;
-- validated output.
-
-## Idempotent API runs
+## Idempotent runs
 
 ```bash
-curl -X POST http://localhost:3000/api/skills/career-alpha-proof/run \
+curl -X POST http://localhost:3000/api/v1/skills/career-alpha-proof/run \
   -H "content-type: application/json" \
   -H "idempotency-key: proof-demo-001" \
   -d '{
@@ -114,7 +107,7 @@ Reusing `proof-demo-001` with the same canonical input returns the original Run.
 
 ## Error contract
 
-Examples include:
+Examples:
 
 ```text
 INPUT_INVALID
@@ -130,9 +123,7 @@ EXECUTION_TIMEOUT
 EXECUTION_FAILED
 ```
 
-Clients should use both `error_code` and `retryable` rather than parsing error strings.
-
-See [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md).
+Clients should use `error_code` and `retryable` rather than parsing message strings. See [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md).
 
 ## Resource policy
 
@@ -151,27 +142,6 @@ Each Skill manifest declares:
 ```
 
 Payload size, timeout, and in-process concurrency are enforced today. `max_artifacts` is part of the contract ahead of ArtifactStore/Python/Image support.
-
-## Skill contract
-
-```text
-skills/<skill-id>/
-├── manifest.json
-├── input.schema.json
-├── output.schema.json
-├── prompt.ts        # LLM Skills
-└── adapter.ts
-```
-
-Manifest v1 recognizes:
-
-```text
-llm
-python  # protocol-ready, runner not registered yet
-image   # protocol-ready, runner not registered yet
-```
-
-Unknown manifest major versions and unavailable runners fail closed.
 
 ## Skill CLI
 
@@ -199,13 +169,7 @@ Generated contracts still require human review and explicit registration in `ski
 npm run evals
 ```
 
-Current fixtures establish integrity baselines such as:
-
-- unsupported career claims stay `SELF-REPORTED`;
-- supplied evidence may raise a claim to `SUPPORTED`, not automatically `VERIFIED`;
-- future positioning stays separate from present-tense claims.
-
-These complement schema/unit tests: a Skill can be structurally valid and still become behaviorally worse.
+Current integrity baselines include unsupported claims staying `SELF-REPORTED`, evidence not automatically becoming `VERIFIED`, and future positioning staying separate from present-tense claims.
 
 ## Provider configuration
 
@@ -216,17 +180,16 @@ LLM_MODEL=gpt-5-mini
 LLM_PROVIDER=openai-compatible
 ```
 
-`OPENAI_API_KEY` and `OPENAI_MODEL` remain backward-compatible aliases.
-
-Without a provider key, reviewed LLM Skills use deterministic demo adapters while still traversing manifest → registry → runner → RunStore → output validation.
+`OPENAI_API_KEY` and `OPENAI_MODEL` remain backward-compatible aliases. Without a provider key, reviewed LLM Skills use deterministic demo adapters through the same Runtime pipeline.
 
 ## Quick start
 
 ```bash
-npm install
+npm ci
 cp .env.example .env.local
 npm run skill:validate
 npm test
+npm run evals
 npm run dev
 ```
 
@@ -234,12 +197,17 @@ Open `http://localhost:3000`.
 
 ## API
 
+Prefer the versioned surface:
+
 ```text
-GET  /api/skills
-GET  /api/skills/:id
-POST /api/skills/:id/run
-GET  /api/runs/:runId
+GET  /api/v1/skills
+GET  /api/v1/skills/:id
+POST /api/v1/skills/:id/run
+GET  /api/v1/runs
+GET  /api/v1/runs/:runId
 ```
+
+Legacy `/api/...` routes remain compatibility aliases during v0.x. See [`docs/API.md`](docs/API.md).
 
 ## Security and privacy
 
@@ -256,28 +224,18 @@ Read:
 Every push must pass:
 
 ```text
+npm ci from committed lockfile
 Skill manifest/schema validation
 TypeScript typecheck
-Runtime + behavior tests
+Runtime tests
+Behavior evals
 Next.js production build
 Production dependency security audit
 ```
 
-Direct dependency versions are pinned exactly and Node/npm versions are declared in `package.json`. A committed npm lockfile is the remaining step for fully reproducible dependency resolution.
-
 ## Current boundaries
 
-v0.3.1 intentionally does **not** include:
-
-- marketplace or arbitrary creator uploads;
-- billing / credits;
-- arbitrary third-party code execution;
-- persistent Postgres RunStore;
-- queue / distributed worker orchestration;
-- Python runner;
-- image runner;
-- Docker sandbox;
-- artifact object storage.
+v0.3.1 intentionally does **not** include marketplace uploads, billing, arbitrary third-party code execution, persistent Postgres, a distributed queue/worker, Python/Image runners, Docker sandboxing, or artifact object storage.
 
 ## Next milestones
 
