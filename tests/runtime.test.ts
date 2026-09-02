@@ -99,6 +99,31 @@ describe("Lavine Skill Runtime v0.3.1", () => {
     if (previousOpenAiKey) process.env.OPENAI_API_KEY = previousOpenAiKey;
   });
 
+  it("atomically deduplicates concurrent requests with the same idempotency key", async () => {
+    const previousLlmKey = process.env.LLM_API_KEY;
+    const previousOpenAiKey = process.env.OPENAI_API_KEY;
+    delete process.env.LLM_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+
+    const input = {
+      target_role: "AI Product Manager",
+      resume: "Built a concurrent-safe AI workflow with public artifacts, test evidence, and documented delivery decisions.",
+      evidence: "Repository and deterministic test evidence are available.",
+    };
+    const key = `parallel-${crypto.randomUUID()}`;
+
+    const [first, second] = await Promise.all([
+      executeSkill("career-alpha-proof", input, { idempotencyKey: key }),
+      executeSkill("career-alpha-proof", input, { idempotencyKey: key }),
+    ]);
+
+    expect(second.id).toBe(first.id);
+    expect(second.input_hash).toBe(first.input_hash);
+
+    if (previousLlmKey) process.env.LLM_API_KEY = previousLlmKey;
+    if (previousOpenAiKey) process.env.OPENAI_API_KEY = previousOpenAiKey;
+  });
+
   it("rejects reuse of an idempotency key with different input", async () => {
     const previousLlmKey = process.env.LLM_API_KEY;
     const previousOpenAiKey = process.env.OPENAI_API_KEY;
