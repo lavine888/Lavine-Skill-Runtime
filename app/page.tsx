@@ -66,12 +66,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function coerceInput(property: SchemaProperty | undefined, raw: string): unknown {
-  if (property?.type === "number" || property?.type === "integer") {
-    return Number(raw);
-  }
-  if (property?.type === "boolean") {
-    return raw === "true";
-  }
+  if (property?.type === "number" || property?.type === "integer") return Number(raw);
+  if (property?.type === "boolean") return raw === "true";
   return raw;
 }
 
@@ -82,7 +78,7 @@ function StructuredValue({ value, depth = 0 }: { value: unknown; depth?: number 
       <div className="arrayList">
         {value.map((item, index) => (
           <div className="arrayItem" key={index}>
-            <span className="index">{index + 1}</span>
+            <span className="index">{String(index + 1).padStart(2, "0")}</span>
             <StructuredValue value={item} depth={depth + 1} />
           </div>
         ))}
@@ -166,6 +162,16 @@ export default function HomePage() {
     [detail],
   );
 
+  const selectedSkill = useMemo(
+    () => skills.find((skill) => skill.id === selectedId),
+    [skills, selectedId],
+  );
+
+  const runnerCount = useMemo(
+    () => new Set(skills.map((skill) => skill.runtime?.type).filter(Boolean)).size,
+    [skills],
+  );
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!selectedId || !detail) return;
@@ -217,189 +223,229 @@ export default function HomePage() {
 
   return (
     <main className="shell">
+      <header className="topbar">
+        <div className="brandMark"><b>LVN</b><span>/</span>SKILL RUNTIME</div>
+        <div className="topbarMeta">
+          <span>RUNNABLE BOUNDARY</span>
+          <span className="liveMark"><i />{catalogLoading ? "SYNC" : "LIVE"}</span>
+        </div>
+      </header>
+
       <section className="hero">
-        <span className="eyebrow">LAVINE SKILL RUNTIME · RUNNABLE BOUNDARY</span>
-        <h1>One contract. Two real execution paths.</h1>
-        <p>
-          A deliberately small runtime for reviewed LLM and Python Skills with typed schemas,
-          provenance, idempotency, bounded execution, and validated outputs.
-        </p>
-      </section>
-
-      <section className="catalog card">
-        <div className="catalogHeader">
-          <div>
-            <span className="kicker">Skill registry</span>
-            <h2>Runnable skills</h2>
-          </div>
-          <span className="status">{catalogLoading ? "loading" : `${skills.length} live`}</span>
+        <div className="heroCopy">
+          <span className="eyebrow">Execution instrument · 2026</span>
+          <h1>
+            Run skills,<br />
+            <em>not wrappers.</em>
+          </h1>
         </div>
-
-        <div className="skillPicker">
-          {skills.map((skill) => (
-            <button
-              className="skillButton"
-              data-active={selectedId === skill.id}
-              key={skill.id}
-              onClick={() => setSelectedId(skill.id)}
-              type="button"
-            >
-              <span>{skill.name}</span>
-              <small>{skill.description}</small>
-              <em>{skill.runtime?.type || "runtime"} · v{skill.version}</em>
-            </button>
-          ))}
+        <div className="heroAside">
+          <p>
+            A deliberately small runtime for reviewed LLM and Python Skills.
+            Typed contracts in. Bounded execution. Validated output out.
+          </p>
+          <div className="heroStats">
+            <div><strong>{String(skills.length).padStart(2, "0")}</strong><span>skills</span></div>
+            <div><strong>{String(runnerCount).padStart(2, "0")}</strong><span>runners</span></div>
+          </div>
         </div>
       </section>
 
-      <section className="grid">
-        <form className="card form" onSubmit={submit}>
-          <div className="cardHeader">
+      <section className="registrySection">
+        <div className="sectionRail">
+          <span>01</span>
+          <p>Registry</p>
+        </div>
+        <div className="registryBody">
+          <div className="sectionHeading">
             <div>
-              <span className="kicker">Schema-generated input</span>
-              <h2>{detail?.manifest.name || "Select a skill"}</h2>
+              <span className="kicker">Reviewed catalog</span>
+              <h2>Choose an execution contract.</h2>
             </div>
-            {detail && <span className="status">{detail.manifest.runtime?.type || "Runnable"}</span>}
+            <p>{catalogLoading ? "Reading registry…" : `${skills.length} reviewed skills / ${runnerCount} execution paths`}</p>
           </div>
 
-          {!detail && <div className="empty compact"><p>Loading skill contract…</p></div>}
+          <div className="skillPicker">
+            {skills.map((skill, index) => (
+              <button
+                className="skillButton"
+                data-active={selectedId === skill.id}
+                key={skill.id}
+                onClick={() => setSelectedId(skill.id)}
+                type="button"
+                aria-pressed={selectedId === skill.id}
+              >
+                <span className="skillIndex">{String(index + 1).padStart(2, "0")}</span>
+                <span className="skillName">{skill.name}</span>
+                <span className="skillDescription">{skill.description}</span>
+                <span className="skillRuntime">{skill.runtime?.type || "runtime"} / v{skill.version}</span>
+                <span className="skillArrow">↗</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {detail && Object.entries(detail.input_schema.properties || {}).map(([key, property]) => {
-            const title = property.title || labelize(key);
-            const value = formData[key] || "";
-            const isLong = (property.maxLength || 0) > 500 || /resume|material|evidence|description/i.test(key);
+      <section className="workbenchSection">
+        <div className="sectionRail">
+          <span>02</span>
+          <p>Workbench</p>
+        </div>
 
-            return (
-              <label key={key}>
-                <span className="fieldTitle">
-                  {title}
-                  {!required.has(key) && <em>optional</em>}
-                </span>
-
-                {property.enum ? (
-                  <select
-                    value={value}
-                    onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
-                    required={required.has(key)}
-                  >
-                    <option value="">Choose…</option>
-                    {property.enum.map((option) => (
-                      <option key={String(option)} value={String(option)}>{labelize(String(option))}</option>
-                    ))}
-                  </select>
-                ) : property.type === "boolean" ? (
-                  <select
-                    value={value}
-                    onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
-                    required={required.has(key)}
-                  >
-                    <option value="">Choose…</option>
-                    <option value="true">True</option>
-                    <option value="false">False</option>
-                  </select>
-                ) : property.type === "number" || property.type === "integer" ? (
-                  <input
-                    type="number"
-                    step={property.type === "integer" ? "1" : "any"}
-                    value={value}
-                    onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
-                    placeholder={property.description || `Enter ${title.toLowerCase()}`}
-                    required={required.has(key)}
-                  />
-                ) : isLong ? (
-                  <textarea
-                    value={value}
-                    onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
-                    placeholder={property.description || `Enter ${title.toLowerCase()}`}
-                    rows={key.includes("description") ? 6 : 8}
-                    required={required.has(key)}
-                  />
-                ) : (
-                  <input
-                    value={value}
-                    onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
-                    placeholder={property.description || `Enter ${title.toLowerCase()}`}
-                    required={required.has(key)}
-                  />
-                )}
-
-                {property.description && <span className="fieldHelp">{property.description}</span>}
-              </label>
-            );
-          })}
-
-          {detail && (
-            <>
-              <button className="runButton" disabled={loading}>{loading ? "Running skill…" : "Run Skill"}</button>
-              <p className="fineprint">
-                {detail.manifest.runtime?.type === "python"
-                  ? "Python Skills execute a reviewed repo-local entrypoint and require Python 3 on the host. No shell or user-provided code is executed."
-                  : "LLM Skills use the configured provider; without a provider key, deterministic demo mode exercises the same Runtime pipeline."}
-              </p>
-              {detail.manifest.source && (
-                <p className="fineprint">
-                  Source pinned to {detail.manifest.source.repo}@{detail.manifest.source.commit.slice(0, 8)}.
-                </p>
-              )}
-            </>
-          )}
-        </form>
-
-        <section className="card result">
-          <div className="cardHeader">
+        <div className="workbenchBody">
+          <div className="selectedContract">
             <div>
-              <span className="kicker">Schema-validated output</span>
-              <h2>Run result</h2>
+              <span className="kicker">Active contract</span>
+              <h2>{selectedSkill?.name || "Select a skill"}</h2>
             </div>
-            {run && <span className="status">{run.status}</span>}
+            <div className="contractMeta">
+              <span>{selectedSkill?.runtime?.type || "—"}</span>
+              <span>{selectedSkill ? `v${selectedSkill.version}` : "—"}</span>
+              <span>{selectedSkill?.source?.commit.slice(0, 8) || "—"}</span>
+            </div>
           </div>
 
-          {!run && !requestError && (
-            <div className="empty">
-              <div className="dot" />
-              <p>Run any registered skill. The renderer does not need skill-specific UI code.</p>
-            </div>
-          )}
-
-          {requestError && (
-            <div className="error">
-              {requestError.code}: {requestError.message}
-              {requestError.retryable ? " · retryable" : ""}
-            </div>
-          )}
-
-          {run?.error && (
-            <div className="error">
-              {run.error_code ? `${run.error_code}: ` : ""}{run.error}
-              {run.retryable ? " · retryable" : ""}
-            </div>
-          )}
-
-          {run?.output !== undefined && (
-            <div className="report">
-              <div className="runMeta">
-                <span>{run.skill_id || selectedId}</span>
-                <code>{run.id}</code>
+          <div className="workbenchGrid">
+            <form className="formPanel" onSubmit={submit}>
+              <div className="panelHeader">
+                <span>INPUT / SCHEMA</span>
+                <span>{detail ? `${Object.keys(detail.input_schema.properties || {}).length} fields` : "loading"}</span>
               </div>
-              <div className="runMeta">
-                <span>{run.runner} · {run.provider || "unknown"}{run.model ? ` · ${run.model}` : ""}</span>
-                <code>{run.duration_ms ?? 0} ms</code>
-              </div>
-              {run.source && (
-                <div className="runMeta">
-                  <span>{run.source.repo}</span>
-                  <code>{run.source.commit.slice(0, 12)}</code>
+
+              {!detail && <div className="empty compact"><p>Loading contract…</p></div>}
+
+              {detail && Object.entries(detail.input_schema.properties || {}).map(([key, property], index) => {
+                const title = property.title || labelize(key);
+                const value = formData[key] || "";
+                const isLong = (property.maxLength || 0) > 500 || /resume|material|evidence|description/i.test(key);
+
+                return (
+                  <label key={key} className="fieldGroup">
+                    <span className="fieldNo">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="fieldTitle">
+                      {title}
+                      {!required.has(key) && <em>optional</em>}
+                    </span>
+
+                    <div className="fieldControl">
+                      {property.enum ? (
+                        <select
+                          value={value}
+                          onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
+                          required={required.has(key)}
+                        >
+                          <option value="">Choose…</option>
+                          {property.enum.map((option) => (
+                            <option key={String(option)} value={String(option)}>{labelize(String(option))}</option>
+                          ))}
+                        </select>
+                      ) : property.type === "boolean" ? (
+                        <select
+                          value={value}
+                          onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
+                          required={required.has(key)}
+                        >
+                          <option value="">Choose…</option>
+                          <option value="true">True</option>
+                          <option value="false">False</option>
+                        </select>
+                      ) : property.type === "number" || property.type === "integer" ? (
+                        <input
+                          type="number"
+                          step={property.type === "integer" ? "1" : "any"}
+                          value={value}
+                          onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
+                          placeholder={property.description || `Enter ${title.toLowerCase()}`}
+                          required={required.has(key)}
+                        />
+                      ) : isLong ? (
+                        <textarea
+                          value={value}
+                          onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
+                          placeholder={property.description || `Enter ${title.toLowerCase()}`}
+                          rows={key.includes("description") ? 5 : 7}
+                          required={required.has(key)}
+                        />
+                      ) : (
+                        <input
+                          value={value}
+                          onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
+                          placeholder={property.description || `Enter ${title.toLowerCase()}`}
+                          required={required.has(key)}
+                        />
+                      )}
+                      {property.description && <span className="fieldHelp">{property.description}</span>}
+                    </div>
+                  </label>
+                );
+              })}
+
+              {detail && (
+                <div className="runArea">
+                  <button className="runButton" disabled={loading}>
+                    <span>{loading ? "EXECUTING" : "RUN CONTRACT"}</span>
+                    <b>{loading ? "···" : "↗"}</b>
+                  </button>
+                  <p>
+                    {detail.manifest.runtime?.type === "python"
+                      ? "Reviewed repo-local Python entrypoint. No shell and no user-provided code."
+                      : "Configured provider when available; deterministic demo otherwise."}
+                  </p>
                 </div>
               )}
-              <StructuredValue value={run.output} />
-            </div>
-          )}
-        </section>
+            </form>
+
+            <section className="resultPanel">
+              <div className="panelHeader">
+                <span>OUTPUT / VALIDATED</span>
+                <span className={run?.status === "completed" ? "resultState success" : "resultState"}>
+                  {run?.status || "idle"}
+                </span>
+              </div>
+
+              {!run && !requestError && (
+                <div className="empty outputEmpty">
+                  <span className="outputGlyph">⌁</span>
+                  <p>Execution output will resolve here.</p>
+                  <small>JSON schema validated / provenance attached</small>
+                </div>
+              )}
+
+              {requestError && (
+                <div className="error">
+                  <strong>{requestError.code}</strong>
+                  <span>{requestError.message}</span>
+                  {requestError.retryable && <em>retryable</em>}
+                </div>
+              )}
+
+              {run?.error && (
+                <div className="error">
+                  <strong>{run.error_code || "EXECUTION_ERROR"}</strong>
+                  <span>{run.error}</span>
+                  {run.retryable && <em>retryable</em>}
+                </div>
+              )}
+
+              {run?.output !== undefined && (
+                <div className="report">
+                  <div className="runLedger">
+                    <div><span>run</span><code>{run.id}</code></div>
+                    <div><span>path</span><code>{run.runner} / {run.provider || "local"}{run.model ? ` / ${run.model}` : ""}</code></div>
+                    <div><span>time</span><code>{run.duration_ms ?? 0} ms</code></div>
+                    {run.source && <div><span>source</span><code>{run.source.repo}@{run.source.commit.slice(0, 8)}</code></div>}
+                  </div>
+                  <StructuredValue value={run.output} />
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
       </section>
 
-      <section className="architecture">
+      <footer className="architecture">
         <span>manifest</span><b>→</b><span>schema</span><b>→</b><span>registry</span><b>→</b><span>runner</span><b>→</b><span>validated output</span><b>→</b><span>RunStore</span>
-      </section>
+      </footer>
     </main>
   );
 }
