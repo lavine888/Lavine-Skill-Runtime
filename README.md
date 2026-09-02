@@ -2,38 +2,27 @@
 
 # Lavine Skill Runtime
 
-### Turn `SKILL.md` into runnable products.
+### Turn reviewed `SKILL.md` workflows into runnable products.
 
-**Contract-first · runner-based · provider-neutral · provenance-aware**
+**Contract-first · LLM + Python · provenance-aware · deliberately small**
 
 </div>
 
 ---
 
-Lavine Skill Runtime turns reviewed Agent Skills into schema-driven web/API products without teaching the Runtime Core their business logic.
+Lavine Skill Runtime is a small execution layer for turning reviewed Agent Skills into schema-driven web/API products without teaching the Runtime Core their business logic.
 
-> **Adding the next Skill should extend the catalog, not rewrite the Runtime Core.**
+> **The boundary is intentional: if a capability is listed here, it runs. If it does not run, it is not part of the contract.**
 
-## v0.3.1 status
+## Runnable surface
 
-Two Career Alpha Skills currently run through the same LLM runner:
-
-| Skill | Source | Runtime | Status |
+| Skill | Source | Runtime | Execution |
 | --- | --- | --- | --- |
-| `career-alpha-proof` | `career-alpha/skills/proof/SKILL.md` | LLM | Runnable |
-| `career-alpha-position` | `career-alpha/skills/position/SKILL.md` | LLM | Runnable |
+| `career-alpha-proof` | `career-alpha/skills/proof/SKILL.md` | LLM | OpenAI-compatible provider or deterministic demo |
+| `career-alpha-position` | `career-alpha/skills/position/SKILL.md` | LLM | OpenAI-compatible provider or deterministic demo |
+| `buffett-moat-rule-check` | `skill-buffett-moat-screener/SKILL.md` | Python | reviewed repo-local subprocess |
 
-v0.3.1 hardens the runtime around operational semantics that future Python/Image runners can reuse:
-
-- **Manifest contract** — JSON Schema 2020-12, immutable source commit, explicit resource policy.
-- **Runner abstraction** — only registered runtime types can execute; unsupported types fail closed.
-- **Provider abstraction** — OpenAI-compatible LLM execution is isolated from Core.
-- **RunStore abstraction** — persistence is replaceable without changing execution logic.
-- **Idempotency** — same Skill + key + input replays the original Run; conflicting reuse fails.
-- **Typed errors** — stable error codes plus retryability instead of one generic failure bucket.
-- **Resource limits** — timeout, input/output bytes, concurrency, and artifact-count policy.
-- **Behavior evals** — Skill integrity assertions live beside code tests.
-- **Reproducible install** — exact direct versions, committed npm lockfile, Node/npm contract, and CI via `npm ci`.
+The Buffett integration intentionally covers only the ordinary-company hard-rule evaluation on supplied metrics. It does **not** duplicate the source repository's PandaData ingestion, point-in-time reconstruction, Parquet production, or backtesting pipeline.
 
 ## Architecture
 
@@ -52,137 +41,55 @@ manifest.json ──► Manifest Schema
               │
               ▼
         Runtime Core
+        ┌─────┴─────┐
+        │           │
+   LLM Runner   Python Runner
+        │           │
+    Provider    fixed runner.py
+        └─────┬─────┘
+              ▼
+      validated output
               │
               ▼
-        Runner Registry
+           RunStore
               │
-        ┌─────┴──────────────┐
-        │                    │
-     LLM Runner       future Python/Image
-        │
-        ▼
- OpenAI-compatible Provider
-        │
-        ▼
- schema + size validation
-        │
-        ▼
-          RunStore
-        │
-        ▼
-       Web / API
+              ▼
+           Web / API
 ```
 
-Core coordinates contracts and lifecycle. It does not contain Career Alpha business logic or vendor-specific model calls.
+The Core owns lifecycle, validation, idempotency, provenance, timeout and resource limits. Business rules live in Skills; model vendors live in providers; Python code lives behind the Python runner.
 
-## Run lifecycle
+## What is enforced
+
+- JSON Schema 2020-12 input/output validation.
+- Source repository + path + exact 40-character commit provenance.
+- `queued → running → completed | failed | timed_out` lifecycle.
+- Atomic idempotency by Skill + client key + canonical input hash.
+- Stable typed errors and retryability.
+- Input/output byte limits and per-Skill concurrency limits.
+- Abort-driven LLM timeout.
+- Python subprocess timeout/cancellation, fixed repo-local entrypoint, no shell, environment allowlist, JSON stdin/stdout and bounded stdout.
+- Reproducible npm install via committed lockfile and `npm ci`.
+
+## Python security boundary
+
+The Python runner is **not an arbitrary-code sandbox**.
+
+It only runs an entrypoint declared by a reviewed Skill manifest under:
 
 ```text
-queued
-  ↓
-running
-  ├──► completed
-  ├──► failed
-  └──► timed_out
+skills/<skill-id>/
 ```
 
-`cancelled` is already reserved in the contract for the future worker/queue layer.
-
-A Run records Skill/version/provenance, SHA-256 `input_hash`, optional `idempotency_key`, runner/provider/model, timestamps/duration, typed errors, retryability, and validated output.
-
-## Idempotent runs
-
-```bash
-curl -X POST http://localhost:3000/api/v1/skills/career-alpha-proof/run \
-  -H "content-type: application/json" \
-  -H "idempotency-key: proof-demo-001" \
-  -d '{
-    "target_role":"AI Product Manager",
-    "resume":"Built an AI agent product and coordinated delivery.",
-    "evidence":"GitHub repo, demo deployment, benchmark notes"
-  }'
-```
-
-Reusing `proof-demo-001` with the same canonical input returns the original Run. Reusing it with different input returns `IDEMPOTENCY_CONFLICT`.
-
-## Error contract
-
-Examples:
-
-```text
-INPUT_INVALID
-INPUT_TOO_LARGE
-IDEMPOTENCY_CONFLICT
-CONCURRENCY_LIMIT
-RUNNER_UNAVAILABLE
-PROVIDER_AUTH_FAILED
-PROVIDER_RATE_LIMITED
-PROVIDER_TIMEOUT
-OUTPUT_INVALID
-EXECUTION_TIMEOUT
-EXECUTION_FAILED
-```
-
-Clients should use `error_code` and `retryable` rather than parsing message strings. See [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md).
-
-## Resource policy
-
-Each Skill manifest declares:
-
-```json
-{
-  "limits": {
-    "timeout_seconds": 120,
-    "max_input_bytes": 262144,
-    "max_output_bytes": 1048576,
-    "max_concurrency": 4,
-    "max_artifacts": 4
-  }
-}
-```
-
-Payload size, timeout, and in-process concurrency are enforced today. `max_artifacts` is part of the contract ahead of ArtifactStore/Python/Image support.
-
-## Skill CLI
-
-```bash
-npm run skill:list
-npm run skill:validate
-```
-
-Scaffold a reviewed Skill contract:
-
-```bash
-npm run skill:init -- \
-  my-skill \
-  owner/repository \
-  skills/my-skill/SKILL.md \
-  0123456789abcdef0123456789abcdef01234567 \
-  llm
-```
-
-Generated contracts still require human review and explicit registration in `skills/registry.ts`.
-
-## Behavior evals
-
-```bash
-npm run evals
-```
-
-Current integrity baselines include unsupported claims staying `SELF-REPORTED`, evidence not automatically becoming `VERIFIED`, and future positioning staying separate from present-tense claims.
-
-## Provider configuration
-
-```env
-LLM_API_KEY=
-LLM_BASE_URL=
-LLM_MODEL=gpt-5-mini
-LLM_PROVIDER=openai-compatible
-```
-
-`OPENAI_API_KEY` and `OPENAI_MODEL` remain backward-compatible aliases. Without a provider key, reviewed LLM Skills use deterministic demo adapters through the same Runtime pipeline.
+It does not accept user-provided file paths, commands or source code; it does not invoke a shell; provider/application secrets are not forwarded into the subprocess environment. Python 3 must exist on the host (`PYTHON_BIN` can override the executable).
 
 ## Quick start
+
+Requirements:
+
+- Node.js 22
+- npm 10
+- Python 3 for Python Skills
 
 ```bash
 npm ci
@@ -195,11 +102,24 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## API
+LLM provider configuration is optional:
 
-Prefer the versioned surface:
+```env
+LLM_API_KEY=
+LLM_BASE_URL=
+LLM_MODEL=gpt-5-mini
+LLM_PROVIDER=openai-compatible
+
+# Optional Python executable override
+PYTHON_BIN=python3
+```
+
+Without an LLM key, reviewed LLM Skills use deterministic demo adapters through the same Runtime pipeline. Python Skills always execute their reviewed local Python entrypoint.
+
+## API v1
 
 ```text
+GET  /api/v1/health
 GET  /api/v1/skills
 GET  /api/v1/skills/:id
 POST /api/v1/skills/:id/run
@@ -207,50 +127,96 @@ GET  /api/v1/runs
 GET  /api/v1/runs/:runId
 ```
 
-Legacy `/api/...` routes remain compatibility aliases during v0.x. See [`docs/API.md`](docs/API.md).
+Create an idempotent Run:
 
-## Security and privacy
+```bash
+curl -X POST http://localhost:3000/api/v1/skills/career-alpha-proof/run \
+  -H "content-type: application/json" \
+  -H "idempotency-key: proof-demo-001" \
+  -d '{
+    "target_role":"AI Product Manager",
+    "resume":"Built an AI agent product and coordinated delivery.",
+    "evidence":"GitHub repo, demo deployment, benchmark notes"
+  }'
+```
 
-Runtime treats user input/provider output as untrusted and does not claim safe arbitrary-code execution. Full user payloads must not be written to logs by default. When a model provider is configured, relevant Skill input is sent to that provider.
+Run the Python Buffett rule check:
 
-Read:
+```bash
+curl -X POST http://localhost:3000/api/v1/skills/buffett-moat-rule-check/run \
+  -H "content-type: application/json" \
+  -d '{
+    "symbol":"600519.SH",
+    "roe_latest_pct":30,
+    "roe_10y_min_pct":18,
+    "gross_margin_latest_pct":90,
+    "gross_margin_volatility_pp":3,
+    "net_profit_positive":true,
+    "capex_to_net_profit_pct":12,
+    "debt_to_net_profit_ratio":0.5,
+    "pe_ttm":20
+  }'
+```
 
-- [`SECURITY.md`](SECURITY.md)
-- [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md)
-- [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md)
+## Skill tooling
+
+```bash
+npm run skill:list
+npm run skill:validate
+```
+
+Scaffold only the runtimes implemented today:
+
+```bash
+npm run skill:init -- \
+  my-skill \
+  owner/repository \
+  skills/my-skill/SKILL.md \
+  0123456789abcdef0123456789abcdef01234567 \
+  llm
+```
+
+Use `python` as the final argument for a Python Skill. Generated Skills still require review and explicit registration in `skills/registry.ts`.
 
 ## CI contract
 
 Every push must pass:
 
 ```text
-npm ci from committed lockfile
-Skill manifest/schema validation
+npm ci
+skill contract validation
 TypeScript typecheck
-Runtime tests
-Behavior evals
+Runtime tests (LLM + Python)
+behavior evals
 Next.js production build
-Production dependency security audit
+production dependency audit
 ```
 
-## Current boundaries
+## Deliberate non-goals
 
-v0.3.1 intentionally does **not** include marketplace uploads, billing, arbitrary third-party code execution, persistent Postgres, a distributed queue/worker, Python/Image runners, Docker sandboxing, or artifact object storage.
+This repository currently does **not** provide:
 
-## Next milestones
+- arbitrary third-party Skill uploads or arbitrary code execution;
+- marketplace, billing, accounts or creator settlement;
+- persistent/distributed Run storage;
+- queue/workers or background jobs;
+- image/browser runners;
+- artifact/object storage;
+- Docker/container sandboxing;
+- the full PandaData Buffett screener pipeline.
 
-### v0.4 — Python Runner
+Those are not "missing checkboxes" for this boundary. They should only be added when a concrete product requirement justifies them.
 
-Run a reviewed deterministic code-backed Skill through the same Manifest, idempotency, resource, error, RunStore, and provenance contracts. First target: Buffett Moat Screener.
+## Docs
 
-### v0.5 — Artifact Store
-
-Add checksummed JSON/CSV/Parquet/Markdown/PNG/ZIP artifacts behind an `ArtifactStore` interface.
-
-### v0.6 — Persistent Runs + observability
-
-Add PostgreSQL RunStore, retention policy, structured operational logs, token/cost metadata, and metrics without logging raw user payloads.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- [`docs/ADDING_A_SKILL.md`](docs/ADDING_A_SKILL.md)
+- [`docs/API.md`](docs/API.md)
+- [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md)
+- [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md)
+- [`SECURITY.md`](SECURITY.md)
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ---
 
-**Core invariant:** business domains belong in Skill definitions and adapters; execution environments belong in runners; vendors belong in providers; persistence belongs in stores.
+**Done means:** a reviewed LLM Skill and a reviewed Python Skill both execute through the same manifest → schema → registry → runtime → validated Run contract, from API and the schema-generated Workbench, with CI green.
