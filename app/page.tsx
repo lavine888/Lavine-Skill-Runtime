@@ -33,6 +33,12 @@ type SkillDetail = {
   output_schema: JsonSchema;
 };
 
+type RuntimeErrorPayload = {
+  code: string;
+  message: string;
+  retryable: boolean;
+};
+
 type RunResponse = {
   id: string;
   skill_id?: string;
@@ -45,6 +51,8 @@ type RunResponse = {
   source?: { repo: string; path: string; ref: string; commit: string };
   output?: unknown;
   error?: string;
+  error_code?: string;
+  retryable?: boolean;
 };
 
 function labelize(value: string) {
@@ -107,6 +115,7 @@ export default function HomePage() {
   const [detail, setDetail] = useState<SkillDetail | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [run, setRun] = useState<RunResponse | null>(null);
+  const [requestError, setRequestError] = useState<RuntimeErrorPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(true);
 
@@ -124,6 +133,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!selectedId) return;
     setRun(null);
+    setRequestError(null);
     setDetail(null);
     setFormData({});
 
@@ -150,6 +160,7 @@ export default function HomePage() {
 
     setLoading(true);
     setRun(null);
+    setRequestError(null);
 
     const payload = Object.fromEntries(
       Object.entries(formData).filter(([, value]) => value.trim().length > 0),
@@ -158,18 +169,29 @@ export default function HomePage() {
     try {
       const response = await fetch(`/api/skills/${selectedId}/run`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as RunResponse;
+      const data = (await response.json()) as RunResponse | { error?: RuntimeErrorPayload };
+      if (!("id" in data)) {
+        setRequestError(
+          data.error || {
+            code: "REQUEST_FAILED",
+            message: `Request failed with HTTP ${response.status}.`,
+            retryable: false,
+          },
+        );
+        return;
+      }
       setRun(data);
     } catch (error) {
-      setRun({
-        id: "client-error",
-        status: "failed",
-        runner: "llm",
-        provider: "client",
-        error: error instanceof Error ? error.message : "Request failed",
+      setRequestError({
+        code: "CLIENT_ERROR",
+        message: error instanceof Error ? error.message : "Request failed",
+        retryable: true,
       });
     } finally {
       setLoading(false);
@@ -179,11 +201,11 @@ export default function HomePage() {
   return (
     <main className="shell">
       <section className="hero">
-        <span className="eyebrow">LAVINE SKILL RUNTIME · V0.3</span>
+        <span className="eyebrow">LAVINE SKILL RUNTIME · V0.3.1</span>
         <h1>One runtime. Many execution paths.</h1>
         <p>
           A contract-first execution layer with typed manifests, runner dispatch,
-          provider abstraction, provenance, and schema-validated outputs.
+          provider abstraction, provenance, idempotency, resource limits, and validated outputs.
         </p>
       </section>
 
@@ -292,14 +314,26 @@ export default function HomePage() {
             {run && <span className="status">{run.status}</span>}
           </div>
 
-          {!run && (
+          {!run && !requestError && (
             <div className="empty">
               <div className="dot" />
               <p>Run any registered skill. The renderer does not need skill-specific UI code.</p>
             </div>
           )}
 
-          {run?.error && <div className="error">{run.error}</div>}
+          {requestError && (
+            <div className="error">
+              {requestError.code}: {requestError.message}
+              {requestError.retryable ? " · retryable" : ""}
+            </div>
+          )}
+
+          {run?.error && (
+            <div className="error">
+              {run.error_code ? `${run.error_code}: ` : ""}{run.error}
+              {run.retryable ? " · retryable" : ""}
+            </div>
+          )}
 
           {run?.output !== undefined && (
             <div className="report">
