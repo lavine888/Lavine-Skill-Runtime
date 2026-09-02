@@ -77,9 +77,19 @@
     "limits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["timeout_seconds"],
+      "required": [
+        "timeout_seconds",
+        "max_input_bytes",
+        "max_output_bytes",
+        "max_concurrency",
+        "max_artifacts"
+      ],
       "properties": {
-        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 }
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+        "max_input_bytes": { "type": "integer", "minimum": 1024, "maximum": 10485760 },
+        "max_output_bytes": { "type": "integer", "minimum": 1024, "maximum": 52428800 },
+        "max_concurrency": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_artifacts": { "type": "integer", "minimum": 0, "maximum": 1000 }
       }
     },
     "tags": {
