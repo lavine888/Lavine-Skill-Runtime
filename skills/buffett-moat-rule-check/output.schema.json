@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Buffett Moat Rule Check Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["symbol", "status", "checks", "failed_rules", "summary", "scope", "disclaimer"],
+  "properties": {
+    "symbol": { "type": "string" },
+    "status": { "enum": ["pass", "fail"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roe", "gross_margin", "profit", "capital_intensity", "debt", "valuation"],
+      "properties": {
+        "roe": { "type": "boolean" },
+        "gross_margin": { "type": "boolean" },
+        "profit": { "type": "boolean" },
+        "capital_intensity": { "type": "boolean" },
+        "debt": { "type": "boolean" },
+        "valuation": { "type": "boolean" }
+      }
+    },
+    "failed_rules": {
+      "type": "array",
+      "items": {
+        "enum": ["roe", "gross_margin", "profit", "capital_intensity", "debt", "valuation"]
+      },
+      "uniqueItems": true
+    },
+    "summary": { "type": "string", "minLength": 1 },
+    "scope": { "const": "ordinary-company hard rules on supplied metrics" },
+    "disclaimer": { "type": "string", "minLength": 1 }
+  }
+}
