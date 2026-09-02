@@ -17,13 +17,11 @@
   },
   "input_schema": "./input.schema.json",
   "output_schema": "./output.schema.json",
-  "artifacts": ["json"],
   "limits": {
     "timeout_seconds": 10,
     "max_input_bytes": 65536,
     "max_output_bytes": 262144,
-    "max_concurrency": 4,
-    "max_artifacts": 0
+    "max_concurrency": 4
   },
   "tags": ["quant", "buffett", "python", "deterministic"]
 }
