@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "id": "buffett-moat-rule-check",
+  "name": "Buffett Moat Rule Check",
+  "description": "Run the ordinary-company Buffett moat hard rules against supplied point-in-time metrics without downloading market data.",
+  "version": "0.1.0",
+  "source": {
+    "repo": "lavine888/skill-buffett-moat-screener",
+    "path": "SKILL.md",
+    "ref": "main",
+    "commit": "08b4e44a01d493e70cbd478b95a45e57fb7997d7"
+  },
+  "runtime": {
+    "type": "python",
+    "adapter": "buffett-moat-rule-check",
+    "entrypoint": "runner.py"
+  },
+  "input_schema": "./input.schema.json",
+  "output_schema": "./output.schema.json",
+  "artifacts": ["json"],
+  "limits": {
+    "timeout_seconds": 10,
+    "max_input_bytes": 65536,
+    "max_output_bytes": 262144,
+    "max_concurrency": 4,
+    "max_artifacts": 0
+  },
+  "tags": ["quant", "buffett", "python", "deterministic"]
+}
