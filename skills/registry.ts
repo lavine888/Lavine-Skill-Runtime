@@ -10,6 +10,11 @@ import positionInputSchema from "./career-alpha-position/input.schema.json";
 import positionOutputSchema from "./career-alpha-position/output.schema.json";
 import { careerPositionAdapter } from "./career-alpha-position/adapter";
 
+import buffettManifest from "./buffett-moat-rule-check/manifest.json";
+import buffettInputSchema from "./buffett-moat-rule-check/input.schema.json";
+import buffettOutputSchema from "./buffett-moat-rule-check/output.schema.json";
+import { buffettMoatRuleCheckAdapter } from "./buffett-moat-rule-check/adapter";
+
 export const skillDefinitions: SkillDefinition[] = [
   {
     manifest: proofManifest as SkillManifest,
@@ -22,5 +27,11 @@ export const skillDefinitions: SkillDefinition[] = [
     inputSchema: positionInputSchema as Record<string, unknown>,
     outputSchema: positionOutputSchema as Record<string, unknown>,
     adapter: careerPositionAdapter,
+  },
+  {
+    manifest: buffettManifest as SkillManifest,
+    inputSchema: buffettInputSchema as Record<string, unknown>,
+    outputSchema: buffettOutputSchema as Record<string, unknown>,
+    adapter: buffettMoatRuleCheckAdapter,
   },
 ];
