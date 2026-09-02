@@ -5,10 +5,9 @@ export type RunStatus =
   | "running"
   | "completed"
   | "failed"
-  | "timed_out"
-  | "cancelled";
+  | "timed_out";
 
-export type RuntimeType = "llm" | "python" | "image";
+export type RuntimeType = "llm" | "python";
 
 export type SourceReference = {
   repo: string;
@@ -19,15 +18,13 @@ export type SourceReference = {
 
 export type RuntimeSpec =
   | { type: "llm"; adapter: string }
-  | { type: "python"; adapter: string; entrypoint: string }
-  | { type: "image"; adapter: string; provider?: string };
+  | { type: "python"; adapter: string; entrypoint: string };
 
 export type ResourceLimits = {
   timeout_seconds: number;
   max_input_bytes: number;
   max_output_bytes: number;
   max_concurrency: number;
-  max_artifacts: number;
 };
 
 export type SkillManifest = {
@@ -40,7 +37,6 @@ export type SkillManifest = {
   runtime: RuntimeSpec;
   input_schema: string;
   output_schema: string;
-  artifacts: string[];
   limits: ResourceLimits;
   tags?: string[];
 };
@@ -61,12 +57,7 @@ export type PythonSkillAdapter = {
   runtime: "python";
 };
 
-export type ImageSkillAdapter = {
-  id: string;
-  runtime: "image";
-};
-
-export type SkillAdapter = LlmSkillAdapter | PythonSkillAdapter | ImageSkillAdapter;
+export type SkillAdapter = LlmSkillAdapter | PythonSkillAdapter;
 
 export type SkillDefinition = {
   manifest: SkillManifest;
