@@ -2,11 +2,20 @@ import {
   createOpenAICompatibleProvider,
   hasConfiguredLlmProvider,
 } from "../providers/openai-compatible";
-import type { RunnerExecution, SkillDefinition, SkillRunner } from "../types";
+import type {
+  RunnerContext,
+  RunnerExecution,
+  SkillDefinition,
+  SkillRunner,
+} from "../types";
 
 export const llmRunner: SkillRunner = {
   type: "llm",
-  async execute(skill: SkillDefinition, input: Record<string, unknown>): Promise<RunnerExecution> {
+  async execute(
+    skill: SkillDefinition,
+    input: Record<string, unknown>,
+    context: RunnerContext,
+  ): Promise<RunnerExecution> {
     if (skill.adapter.runtime !== "llm") {
       throw new Error(`Skill ${skill.manifest.id} does not provide an LLM adapter.`);
     }
@@ -27,6 +36,7 @@ export const llmRunner: SkillRunner = {
       user: messages.user,
       schemaName: skill.adapter.responseSchemaName,
       schema: skill.outputSchema,
+      signal: context.signal,
     });
 
     return {
