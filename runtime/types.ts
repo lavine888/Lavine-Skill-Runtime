@@ -1,3 +1,5 @@
+import type { RuntimeErrorCode } from "./errors";
+
 export type RunStatus =
   | "queued"
   | "running"
@@ -20,6 +22,14 @@ export type RuntimeSpec =
   | { type: "python"; adapter: string; entrypoint: string }
   | { type: "image"; adapter: string; provider?: string };
 
+export type ResourceLimits = {
+  timeout_seconds: number;
+  max_input_bytes: number;
+  max_output_bytes: number;
+  max_concurrency: number;
+  max_artifacts: number;
+};
+
 export type SkillManifest = {
   schema_version: "1.0";
   id: string;
@@ -31,7 +41,7 @@ export type SkillManifest = {
   input_schema: string;
   output_schema: string;
   artifacts: string[];
-  limits: { timeout_seconds: number };
+  limits: ResourceLimits;
   tags?: string[];
 };
 
@@ -81,6 +91,10 @@ export type SkillRunner = {
   ): Promise<RunnerExecution>;
 };
 
+export type ExecuteSkillOptions = {
+  idempotencyKey?: string;
+};
+
 export type RunRecord = {
   id: string;
   skill_id: string;
@@ -88,9 +102,12 @@ export type RunRecord = {
   source: SourceReference;
   status: RunStatus;
   input: unknown;
+  input_hash: string;
+  idempotency_key?: string;
   output?: unknown;
   error?: string;
-  error_code?: string;
+  error_code?: RuntimeErrorCode;
+  retryable?: boolean;
   created_at: string;
   started_at?: string;
   completed_at?: string;
