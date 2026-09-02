@@ -45,25 +45,24 @@ export type SkillManifest = {
   tags?: string[];
 };
 
-type BaseSkillAdapter = {
+export type LlmSkillAdapter = {
   id: string;
-  demo(input: Record<string, unknown>): unknown;
-};
-
-export type LlmSkillAdapter = BaseSkillAdapter & {
   runtime: "llm";
   responseSchemaName: string;
   buildMessages(input: Record<string, unknown>): {
     system: string;
     user: string;
   };
+  demo(input: Record<string, unknown>): unknown;
 };
 
-export type PythonSkillAdapter = BaseSkillAdapter & {
+export type PythonSkillAdapter = {
+  id: string;
   runtime: "python";
 };
 
-export type ImageSkillAdapter = BaseSkillAdapter & {
+export type ImageSkillAdapter = {
+  id: string;
   runtime: "image";
 };
 
