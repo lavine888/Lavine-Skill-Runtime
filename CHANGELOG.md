@@ -2,6 +2,21 @@
 
 All notable changes to Lavine Skill Runtime are tracked here.
 
+## Unreleased
+
+### Added
+
+- Abort-aware Runner context so Runtime timeout can propagate cancellation into supported providers.
+- `/api/v1/health` liveness endpoint.
+- Architecture documentation covering layer ownership, atomic idempotency, timeout cancellation, persistence invariants, and future Python isolation boundaries.
+- Concurrent idempotency regression coverage.
+
+### Changed
+
+- MemoryRunStore `create()` now owns atomic idempotent creation semantics inside one JavaScript process.
+- OpenAI-compatible requests receive Runtime `AbortSignal` through SDK request options.
+- Contribution guidance now requires `npm ci`, behavior evals, and explicit concurrency/cancellation review for Runtime changes.
+
 ## 0.3.1
 
 ### Added
