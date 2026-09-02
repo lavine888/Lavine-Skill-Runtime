@@ -16,7 +16,7 @@ type SchemaProperty = {
   type?: string;
   title?: string;
   description?: string;
-  enum?: string[];
+  enum?: Array<string | number>;
   default?: unknown;
   maxLength?: number;
 };
@@ -63,6 +63,16 @@ function labelize(value: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function coerceInput(property: SchemaProperty | undefined, raw: string): unknown {
+  if (property?.type === "number" || property?.type === "integer") {
+    return Number(raw);
+  }
+  if (property?.type === "boolean") {
+    return raw === "true";
+  }
+  return raw;
 }
 
 function StructuredValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
@@ -143,7 +153,9 @@ export default function HomePage() {
         setDetail(data);
         const defaults: Record<string, string> = {};
         for (const [key, property] of Object.entries(data.input_schema.properties || {})) {
-          if (typeof property.default === "string") defaults[key] = property.default;
+          if (["string", "number", "boolean"].includes(typeof property.default)) {
+            defaults[key] = String(property.default);
+          }
         }
         setFormData(defaults);
       });
@@ -156,14 +168,19 @@ export default function HomePage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!selectedId) return;
+    if (!selectedId || !detail) return;
 
     setLoading(true);
     setRun(null);
     setRequestError(null);
 
     const payload = Object.fromEntries(
-      Object.entries(formData).filter(([, value]) => value.trim().length > 0),
+      Object.entries(formData)
+        .filter(([, value]) => value.trim().length > 0)
+        .map(([key, value]) => [
+          key,
+          coerceInput(detail.input_schema.properties?.[key], value),
+        ]),
     );
 
     try {
@@ -201,11 +218,11 @@ export default function HomePage() {
   return (
     <main className="shell">
       <section className="hero">
-        <span className="eyebrow">LAVINE SKILL RUNTIME · V0.3.1</span>
-        <h1>One runtime. Many execution paths.</h1>
+        <span className="eyebrow">LAVINE SKILL RUNTIME · RUNNABLE BOUNDARY</span>
+        <h1>One contract. Two real execution paths.</h1>
         <p>
-          A contract-first execution layer with typed manifests, runner dispatch,
-          provider abstraction, provenance, idempotency, resource limits, and validated outputs.
+          A deliberately small runtime for reviewed LLM and Python Skills with typed schemas,
+          provenance, idempotency, bounded execution, and validated outputs.
         </p>
       </section>
 
@@ -266,8 +283,29 @@ export default function HomePage() {
                     required={required.has(key)}
                   >
                     <option value="">Choose…</option>
-                    {property.enum.map((option) => <option key={option} value={option}>{labelize(option)}</option>)}
+                    {property.enum.map((option) => (
+                      <option key={String(option)} value={String(option)}>{labelize(String(option))}</option>
+                    ))}
                   </select>
+                ) : property.type === "boolean" ? (
+                  <select
+                    value={value}
+                    onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
+                    required={required.has(key)}
+                  >
+                    <option value="">Choose…</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                  </select>
+                ) : property.type === "number" || property.type === "integer" ? (
+                  <input
+                    type="number"
+                    step={property.type === "integer" ? "1" : "any"}
+                    value={value}
+                    onChange={(event) => setFormData((current) => ({ ...current, [key]: event.target.value }))}
+                    placeholder={property.description || `Enter ${title.toLowerCase()}`}
+                    required={required.has(key)}
+                  />
                 ) : isLong ? (
                   <textarea
                     value={value}
@@ -294,7 +332,9 @@ export default function HomePage() {
             <>
               <button className="runButton" disabled={loading}>{loading ? "Running skill…" : "Run Skill"}</button>
               <p className="fineprint">
-                No provider key? The deterministic demo adapter still passes through the same manifest, schema, registry, runner, RunStore, and output validation path.
+                {detail.manifest.runtime?.type === "python"
+                  ? "Python Skills execute a reviewed repo-local entrypoint and require Python 3 on the host. No shell or user-provided code is executed."
+                  : "LLM Skills use the configured provider; without a provider key, deterministic demo mode exercises the same Runtime pipeline."}
               </p>
               {detail.manifest.source && (
                 <p className="fineprint">
@@ -358,7 +398,7 @@ export default function HomePage() {
       </section>
 
       <section className="architecture">
-        <span>manifest</span><b>→</b><span>schema</span><b>→</b><span>registry</span><b>→</b><span>runner</span><b>→</b><span>provider</span><b>→</b><span>RunStore</span><b>→</b><span>validated output</span>
+        <span>manifest</span><b>→</b><span>schema</span><b>→</b><span>registry</span><b>→</b><span>runner</span><b>→</b><span>validated output</span><b>→</b><span>RunStore</span>
       </section>
     </main>
   );
