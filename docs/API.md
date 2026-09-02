@@ -2,6 +2,14 @@
 
 The versioned API is the preferred integration surface. Legacy `/api/...` routes remain as compatibility aliases during v0.x.
 
+## Health
+
+```text
+GET /api/v1/health
+```
+
+Returns a lightweight, non-cached liveness snapshot with the number of registered Skills, implemented runner types, and current RunStore kind. It does not require an LLM provider key because deterministic demo execution is a supported development mode.
+
 ## Skills
 
 ```text
@@ -24,6 +32,8 @@ Idempotency-Key: <client-generated-key>
 ```
 
 Same Skill + key + canonical input returns the original Run. Reusing the key with different input returns HTTP 409 and `IDEMPOTENCY_CONFLICT`.
+
+Idempotent creation is atomic inside the current single-process MemoryRunStore. Future persistent stores must preserve the same semantic with a uniqueness constraint/transaction so concurrent duplicate requests cannot create duplicate Runs.
 
 Contract errors before a Run is created return:
 
@@ -78,6 +88,18 @@ Representative fields:
 ```
 
 Failed Runs may also include `error`, `error_code`, and `retryable`.
+
+## Timeout behavior
+
+Runtime timeout uses an `AbortSignal` propagated into supported runners/providers. For the OpenAI-compatible provider, the signal is passed to the SDK request so a timed-out Run attempts to cancel the underlying HTTP work instead of only returning early to the caller.
+
+A timed-out Run records:
+
+```text
+status: timed_out
+error_code: EXECUTION_TIMEOUT
+retryable: true
+```
 
 ## Compatibility
 
