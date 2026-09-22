@@ -1,0 +1,65 @@
+name: "Good first issue: contribute a Python Skill"
+description: Propose and implement a reviewed Python Skill that runs through the fixed repo-local subprocess runner.
+title: "[Skill] Add Python Skill: <skill-id>"
+labels: ["good first issue", "skill", "python-skill"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing a Skill. Read
+        [`docs/ADDING_A_SKILL.md`](https://github.com/lavine888/Lavine-Skill-Runtime/blob/main/docs/ADDING_A_SKILL.md)
+        and [`docs/SECURITY_MODEL.md`](https://github.com/lavine888/Lavine-Skill-Runtime/blob/main/docs/SECURITY_MODEL.md)
+        first.
+
+        The Python runner is **not an arbitrary-code sandbox**. It executes exactly one
+        reviewed, repo-local entrypoint with `shell: false`, an environment allowlist,
+        JSON stdin/stdout, bounded output, and timeout cancellation.
+  - type: input
+    id: skill_id
+    attributes:
+      label: Skill id
+      description: kebab-case, matches the directory name and `manifest.id`.
+      placeholder: deterministic-unit-converter
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What deterministic outcome does this Skill produce?
+      description: Deterministic rules only. Judgment-heavy work belongs in an LLM Skill.
+      placeholder: Applies a fixed set of numeric thresholds to supplied metrics and returns pass / review per rule.
+    validations:
+      required: true
+  - type: textarea
+    id: io
+    attributes:
+      label: Input and output contract
+      placeholder: |
+        input: { symbol: string, roe_pct: number }
+        output: { verdict: "pass" | "review", failed_rules: string[] }
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Reviewed source pin (owner/repo + 40-char commit)
+      placeholder: owner/repo @ 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+  - type: checkboxes
+    id: contract
+    attributes:
+      label: Contract checklist
+      options:
+        - label: The entrypoint lives inside `skills/<skill-id>/` and takes no user-provided path or code.
+          required: true
+        - label: The entrypoint reads one JSON value from stdin and writes one JSON value to stdout.
+          required: true
+        - label: stderr is diagnostics only; failures exit non-zero.
+          required: true
+        - label: The manifest declares bounded timeout / byte / concurrency limits.
+          required: true
+        - label: The Skill is explicitly registered in `skills/registry.ts`.
+          required: true
+        - label: I ran `npm run skill:validate`, `npm test`, and `npm run evals` locally.
+          required: true

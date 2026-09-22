@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Adding a Skill (contract docs)
+    url: https://github.com/lavine888/Lavine-Skill-Runtime/blob/main/docs/ADDING_A_SKILL.md
+    about: Read the reviewed Skill contract before opening a Skill issue.
+  - name: Runtime contract and architecture
+    url: https://github.com/lavine888/Lavine-Skill-Runtime/blob/main/docs/ARCHITECTURE.md
+    about: How Runtime Core, runners, providers, and stores divide ownership.
+  - name: Security policy
+    url: https://github.com/lavine888/Lavine-Skill-Runtime/blob/main/SECURITY.md
+    about: Report a trust-boundary or Python-runner issue privately, not in a public issue.
