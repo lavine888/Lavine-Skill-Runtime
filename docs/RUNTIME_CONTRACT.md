@@ -50,6 +50,12 @@ Stable Runtime codes:
 
 Each error also carries `retryable`. Clients should not derive retry policy from message strings.
 
+When an execution error occurs after a Run is created, the classified HTTP status is persisted on the Run as `error_http_status` (for example `502` for `PROVIDER_FAILED`, `503` for `PROVIDER_RATE_LIMITED` or an unconfigured provider, `504` for timeouts). API responses use this field instead of mapping every failure to `500`.
+
+### Demo execution gate
+
+Deterministic demo execution (LLM Skills without a configured provider) is allowed automatically in development/test. In production it is denied with `PROVIDER_AUTH_FAILED` (`503`) unless `LLM_ALLOW_DEMO=1` is set explicitly. Demo output is never presented as a completed live run.
+
 ## Resource policy
 
 Every Manifest v1 Skill declares only limits enforced today:
@@ -113,7 +119,7 @@ Do not extend Manifest v1 with speculative fields. Additions should correspond t
 
 `RunStore` owns persistence. Runtime Core must not depend on a database implementation.
 
-The current `MemoryRunStore` is suitable for local/demo execution. Any replacement must preserve:
+The current `MemoryRunStore` is suitable for local/demo execution. It is bounded: the oldest-created Runs are evicted beyond `RUN_STORE_MAX_RUNS` (default `1000`), and replays of evicted idempotency keys create new Runs. Any replacement must preserve:
 
 - Run ID uniqueness;
 - atomic idempotency;
@@ -124,7 +130,7 @@ The current `MemoryRunStore` is suitable for local/demo execution. Any replaceme
 
 ## Logging contract
 
-Do not log complete user inputs, outputs, provider credentials or authorization headers by default. Operational logs should prefer Run ID, Skill ID, status, duration, runner/provider/model identifiers, byte counts and error codes.
+Structured lifecycle events are logged as single-line JSON with run metadata only: `run_id`, `skill_id`, `status`, `duration_ms`, `runner`, `provider`, `model`, `error_code`, `retryable`, and byte counts for bounded subprocess diagnostics. Complete user inputs, outputs, provider credentials, and authorization headers are never logged. Events can be disabled with `LOG_EVENTS=off`.
 
 ## Completion boundary
 

@@ -102,6 +102,7 @@ export type RunRecord = {
   output?: unknown;
   error?: string;
   error_code?: RuntimeErrorCode;
+  error_http_status?: number;
   retryable?: boolean;
   created_at: string;
   started_at?: string;

@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
-import { listSkills, supportedRuntimeTypes } from "@/runtime";
+import {
+  hasConfiguredLlmProvider,
+  isDemoExecutionAllowed,
+  listSkills,
+  supportedRuntimeTypes,
+} from "@/runtime";
 
 export async function GET() {
+  const llmProvider = hasConfiguredLlmProvider()
+    ? "configured"
+    : isDemoExecutionAllowed()
+      ? "demo"
+      : "unconfigured";
+
   return NextResponse.json(
     {
       status: "ok",
@@ -9,6 +20,7 @@ export async function GET() {
       skills: listSkills().length,
       runners: supportedRuntimeTypes(),
       run_store: "memory",
+      llm_provider: llmProvider,
     },
     {
       headers: {

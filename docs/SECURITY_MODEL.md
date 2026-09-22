@@ -21,13 +21,14 @@ Runtime rejects rather than guesses when:
 - resource limits are exceeded;
 - an idempotency key is reused with different input;
 - a Python entrypoint escapes its Skill directory;
-- the Python executable is unavailable.
+- the Python executable is unavailable;
+- production runs an LLM Skill with no provider configured and demo execution is not explicitly allowed.
 
 ## LLM provider boundary
 
 LLM credentials remain server-side. Workbench never receives provider API keys.
 
-Provider errors are normalized into stable Runtime errors. Timeout propagates AbortSignal into the provider request when supported.
+Provider errors are normalized into stable Runtime errors. Timeout propagates AbortSignal into the provider request when supported. Deterministic demo execution never runs silently in production: it is denied unless `LLM_ALLOW_DEMO=1`, so demo output cannot be mistaken for a live model result.
 
 ## Python boundary
 
@@ -42,6 +43,10 @@ The runner currently enforces:
 - bounded stdout and bounded diagnostic stderr;
 - small environment allowlist instead of inheriting application secrets;
 - Runtime timeout propagated through AbortSignal to the child process.
+
+Subprocess stderr is treated as server-side diagnostics: it is logged in bounded form with the Run ID and is not returned verbatim in client-facing error messages, since it may contain input echoes or filesystem paths.
+
+The runner resolves the skills directory relative to the runtime module (with an optional `SKILLS_DIR` override for standalone/container deployments), so execution does not depend on the server process's working directory.
 
 The runner does **not** provide OS/container-level isolation for network, filesystem, CPU or memory. Therefore:
 

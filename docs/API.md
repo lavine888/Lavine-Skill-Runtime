@@ -35,6 +35,12 @@ Same Skill + key + canonical input returns the original Run. Reusing the key wit
 
 Idempotent creation is atomic inside the current single-process MemoryRunStore. Future persistent stores must preserve the same semantic with a uniqueness constraint/transaction so concurrent duplicate requests cannot create duplicate Runs.
 
+The route validates the request before parsing when possible:
+
+- unknown Skill returns `404` with `UNKNOWN_SKILL`;
+- a `Content-Length` header beyond the Skill's `max_input_bytes` returns `413` with `INPUT_TOO_LARGE` before body parsing;
+- a malformed JSON body returns `400` with `INPUT_INVALID`.
+
 Contract errors before a Run is created return:
 
 ```json
@@ -87,7 +93,18 @@ Representative fields:
 }
 ```
 
-Failed Runs may also include `error`, `error_code`, and `retryable`.
+Failed Runs may also include `error`, `error_code`, `error_http_status`, and `retryable`.
+
+`error_http_status` persists the classified HTTP status of the execution failure (`502` provider/auth failures, `503` rate limiting or an unconfigured provider, `504` timeouts) so API responses keep typed semantics instead of collapsing every failure to `500`.
+
+## Provider modes
+
+LLM Skills run in one of two modes:
+
+- `live` — an OpenAI-compatible provider is configured (`LLM_API_KEY`); provider failures are normalized into typed Runtime errors.
+- `demo` — deterministic Skill adapters execute through the same Runtime pipeline. Demo is automatic in development/test; in production it is denied (`503`, `PROVIDER_AUTH_FAILED`) unless `LLM_ALLOW_DEMO=1` is set explicitly.
+
+`GET /api/v1/health` reports the current mode as `llm_provider: configured | demo | unconfigured`.
 
 ## Timeout behavior
 
