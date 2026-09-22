@@ -219,8 +219,8 @@ LLM_PROVIDER=openai-compatible
 PYTHON_BIN=python3
 ```
 
-Without an LLM key, reviewed LLM Skills still run through deterministic demo adapters and the **same Runtime pipeline**.  
-没有 LLM Key 时，LLM Skill 仍然会通过 deterministic demo 跑完整条 Runtime 链路。
+Without an LLM key, reviewed LLM Skills still run through deterministic demo adapters and the **same Runtime pipeline** in development. In production, demo execution is denied unless explicitly enabled with `LLM_ALLOW_DEMO=1` — demo output is never silently presented as a live result.  
+没有 LLM Key 时，开发环境下 LLM Skill 仍然会通过 deterministic demo 跑完整条 Runtime 链路；生产环境则默认拒绝 demo（需显式设置 `LLM_ALLOW_DEMO=1`），避免把演示输出当成真实结果。
 
 Python Skills always execute their reviewed local Python entrypoint.  
 Python Skill 则始终执行仓库内审核过的本地 Python entrypoint。

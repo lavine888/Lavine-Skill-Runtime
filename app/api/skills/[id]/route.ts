@@ -8,7 +8,16 @@ export async function GET(
   const { id } = await context.params;
   const skill = getSkill(id);
   if (!skill) {
-    return NextResponse.json({ error: "Skill not found" }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: {
+          code: "UNKNOWN_SKILL",
+          message: `Unknown skill: ${id}`,
+          retryable: false,
+        },
+      },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json({

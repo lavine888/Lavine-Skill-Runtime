@@ -1,11 +1,32 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { RuntimeError } from "../errors";
+import { logEvent } from "../log";
 import type { RunnerExecution, SkillDefinition, SkillRunner } from "../types";
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 function pythonBinary() {
   return process.env.PYTHON_BIN || (process.platform === "win32" ? "python" : "python3");
+}
+
+/**
+ * Skills live in the repository checkout, which is not part of the Next.js
+ * build output. Resolve relative to this module first so execution does not
+ * depend on the server's current working directory, then fall back to cwd.
+ * SKILLS_DIR overrides both for standalone/container deployments.
+ */
+function skillsRoot() {
+  const override = process.env.SKILLS_DIR;
+  if (override) return path.resolve(override);
+
+  const moduleRelative = path.resolve(moduleDir, "..", "..", "skills");
+  if (existsSync(moduleRelative)) return moduleRelative;
+
+  return path.resolve(process.cwd(), "skills");
 }
 
 function safeEntrypoint(skill: SkillDefinition) {
@@ -17,7 +38,7 @@ function safeEntrypoint(skill: SkillDefinition) {
     );
   }
 
-  const skillDir = path.resolve(process.cwd(), "skills", skill.manifest.id);
+  const skillDir = path.resolve(skillsRoot(), skill.manifest.id);
   const entrypoint = path.resolve(skillDir, skill.manifest.runtime.entrypoint);
   if (entrypoint !== skillDir && !entrypoint.startsWith(`${skillDir}${path.sep}`)) {
     throw new RuntimeError("EXECUTION_FAILED", "Python entrypoint escapes the Skill directory.", {
@@ -130,10 +151,20 @@ export const pythonRunner: SkillRunner = {
       child.on("close", (code, signal) => {
         if (settled) return;
         if (code !== 0) {
+          // Diagnostics stay in the server-side log; the client-facing error
+          // must not echo subprocess stderr, which may contain input echoes
+          // or filesystem paths.
+          logEvent("runner.python.stderr", {
+            skill_id: skill.manifest.id,
+            exit_code: code,
+            signal: signal || null,
+            stderr_bytes: Buffer.byteLength(stderr, "utf8"),
+            stderr_preview: stderr.trim().slice(0, 1000) || null,
+          });
           finishReject(
             new RuntimeError(
               "EXECUTION_FAILED",
-              `Python process exited with code ${String(code)}${signal ? ` (${signal})` : ""}${stderr.trim() ? `: ${stderr.trim()}` : ""}`,
+              `Python process exited with code ${String(code)}${signal ? ` (${signal})` : ""}. See server logs for diagnostics.`,
               { retryable: false, httpStatus: 500 },
             ),
           );

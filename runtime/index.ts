@@ -1,4 +1,5 @@
 import { skillDefinitions } from "../skills/registry";
+import { isDemoExecutionAllowed } from "./demo";
 import { asRuntimeError, RuntimeError } from "./errors";
 import { hashInput } from "./idempotency";
 import {
@@ -6,6 +7,7 @@ import {
   assertInputWithinLimits,
   assertOutputWithinLimits,
 } from "./limits";
+import { logEvent } from "./log";
 import { buildRegistry } from "./registry";
 import { defaultRunStore } from "./run-store";
 import { getRunner, listRunnerTypes } from "./runners";
@@ -25,6 +27,8 @@ export type {
   SourceReference,
 } from "./types";
 export { RuntimeError } from "./errors";
+export { isDemoExecutionAllowed } from "./demo";
+export { hasConfiguredLlmProvider } from "./providers/openai-compatible";
 
 const registry = buildRegistry(skillDefinitions);
 
@@ -132,6 +136,10 @@ export async function executeSkill(
 
   if (!creation.created) {
     releaseSlot();
+    logEvent("run.replayed", {
+      run_id: creation.run.id,
+      skill_id: creation.run.skill_id,
+    });
     if (creation.run.input_hash !== inputHash) {
       throw new RuntimeError(
         "IDEMPOTENCY_CONFLICT",
@@ -141,6 +149,12 @@ export async function executeSkill(
     }
     return creation.run;
   }
+
+  logEvent("run.created", {
+    run_id: run.id,
+    skill_id: run.skill_id,
+    runner: run.runner,
+  });
 
   const startedMs = Date.now();
   run.status = "running";
@@ -164,6 +178,7 @@ export async function executeSkill(
     const runtimeError = asRuntimeError(error);
     run.status = runtimeError.code === "EXECUTION_TIMEOUT" ? "timed_out" : "failed";
     run.error_code = runtimeError.code;
+    run.error_http_status = runtimeError.httpStatus;
     run.retryable = runtimeError.retryable;
     run.error = runtimeError.message;
   } finally {
@@ -174,5 +189,21 @@ export async function executeSkill(
   run.completed_at = new Date(completedMs).toISOString();
   run.duration_ms = completedMs - startedMs;
   await defaultRunStore.update(run);
+
+  logEvent(
+    run.status === "completed" ? "run.completed" : "run.failed",
+    {
+      run_id: run.id,
+      skill_id: run.skill_id,
+      status: run.status,
+      duration_ms: run.duration_ms,
+      runner: run.runner,
+      provider: run.provider,
+      model: run.model,
+      error_code: run.error_code,
+      retryable: run.retryable,
+    },
+  );
+
   return run;
 }

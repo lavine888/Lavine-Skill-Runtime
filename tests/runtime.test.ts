@@ -3,10 +3,20 @@ import {
   executeSkill,
   getRun,
   getSkill,
+  isDemoExecutionAllowed,
   listSkills,
   RuntimeError,
   supportedRuntimeTypes,
 } from "../runtime";
+import { MemoryRunStore } from "../runtime/run-store";
+
+// Next.js augments `process.env.NODE_ENV` as a readonly literal union, so the
+// test must write it through a mutable view instead of assigning directly.
+function setNodeEnv(value: string | undefined) {
+  const env = process.env as Record<string, string | undefined>;
+  if (value === undefined) delete env.NODE_ENV;
+  else env.NODE_ENV = value;
+}
 
 describe("Lavine Skill Runtime runnable boundary", () => {
   it("registers reviewed skills and only advertises implemented runners", () => {
@@ -254,5 +264,121 @@ describe("Lavine Skill Runtime runnable boundary", () => {
       if (previousOpenAiKey) process.env.OPENAI_API_KEY = previousOpenAiKey;
       else delete process.env.OPENAI_API_KEY;
     }
+  });
+
+  it("persists the provider HTTP status on failed runs", async () => {
+    const previous = {
+      apiKey: process.env.LLM_API_KEY,
+      openAiKey: process.env.OPENAI_API_KEY,
+      baseUrl: process.env.LLM_BASE_URL,
+      model: process.env.LLM_MODEL,
+    };
+    process.env.LLM_API_KEY = "test-key-invalid";
+    process.env.LLM_BASE_URL = "http://127.0.0.1:9"; // discard port: fails fast
+    process.env.LLM_MODEL = "test-model";
+
+    try {
+      const run = await executeSkill("career-alpha-proof", {
+        target_role: "AI Product Manager",
+        resume: "Built an AI workflow with a public repository and documented delivery decisions.",
+        evidence: "Repository and deployment evidence are available.",
+      });
+
+      expect(run.status).toBe("failed");
+      expect(run.error_code).toBe("PROVIDER_FAILED");
+      expect(run.error_http_status).toBe(502);
+      expect(run.retryable).toBe(true);
+    } finally {
+      if (previous.apiKey) process.env.LLM_API_KEY = previous.apiKey;
+      else delete process.env.LLM_API_KEY;
+      if (previous.openAiKey) process.env.OPENAI_API_KEY = previous.openAiKey;
+      else delete process.env.OPENAI_API_KEY;
+      if (previous.baseUrl) process.env.LLM_BASE_URL = previous.baseUrl;
+      else delete process.env.LLM_BASE_URL;
+      if (previous.model) process.env.LLM_MODEL = previous.model;
+      else delete process.env.LLM_MODEL;
+    }
+  });
+
+  it("fails closed in production when no provider is configured and demo is not allowed", async () => {
+    const previousEnv = process.env.NODE_ENV;
+    const previousFlag = process.env.LLM_ALLOW_DEMO;
+    const previousKey = process.env.LLM_API_KEY;
+    const previousOpenAiKey = process.env.OPENAI_API_KEY;
+    delete process.env.LLM_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.LLM_ALLOW_DEMO;
+    setNodeEnv("production");
+
+    try {
+      expect(isDemoExecutionAllowed()).toBe(false);
+      // executeSkill turns execution failures into a failed Run (it only
+      // throws for pre-run contract errors), so assert on the record.
+      const run = await executeSkill("career-alpha-proof", {
+        target_role: "AI Product Manager",
+        resume: "Built an AI workflow with a public repository and documented delivery decisions.",
+      });
+      expect(run.status).toBe("failed");
+      expect(run.error_code).toBe("PROVIDER_AUTH_FAILED");
+      expect(run.error_http_status).toBe(503);
+      expect(run.retryable).toBe(false);
+    } finally {
+      setNodeEnv(previousEnv);
+      if (previousFlag === undefined) delete process.env.LLM_ALLOW_DEMO;
+      else process.env.LLM_ALLOW_DEMO = previousFlag;
+      if (previousKey) process.env.LLM_API_KEY = previousKey;
+      else delete process.env.LLM_API_KEY;
+      if (previousOpenAiKey) process.env.OPENAI_API_KEY = previousOpenAiKey;
+      else delete process.env.OPENAI_API_KEY;
+    }
+  });
+
+  it("allows demo execution when explicitly enabled, even in production", () => {
+    const previousEnv = process.env.NODE_ENV;
+    const previousFlag = process.env.LLM_ALLOW_DEMO;
+    process.env.LLM_ALLOW_DEMO = "1";
+    setNodeEnv("production");
+
+    try {
+      expect(isDemoExecutionAllowed()).toBe(true);
+    } finally {
+      setNodeEnv(previousEnv);
+      if (previousFlag === undefined) delete process.env.LLM_ALLOW_DEMO;
+      else process.env.LLM_ALLOW_DEMO = previousFlag;
+    }
+  });
+
+  it("bounds MemoryRunStore size, evicts oldest runs, and keeps idempotency indexed", async () => {
+    // Runs last so eviction cannot interfere with earlier assertions.
+    const store = new MemoryRunStore(2);
+    const base = {
+      skill_id: "career-alpha-proof",
+      skill_version: "0.1.0",
+      source: getSkill("career-alpha-proof")!.manifest.source,
+      status: "queued" as const,
+      input: {},
+      input_hash: "0".repeat(64),
+      created_at: new Date().toISOString(),
+      runner: "llm" as const,
+    };
+
+    const first = await store.create({ ...base, id: "run-1", idempotency_key: "key-1" });
+    expect(first.created).toBe(true);
+
+    const replay = await store.create({ ...base, id: "run-1-dup", idempotency_key: "key-1" });
+    expect(replay.created).toBe(false);
+    expect(replay.run.id).toBe("run-1");
+
+    await store.create({ ...base, id: "run-2", idempotency_key: "key-2" });
+    await store.create({ ...base, id: "run-3", idempotency_key: "key-3" });
+
+    expect(await store.get("run-1")).toBeUndefined();
+    expect(await store.get("run-2")).toBeDefined();
+    expect(await store.get("run-3")).toBeDefined();
+
+    // Evicted keys no longer replay: a new Run is created instead.
+    const afterEviction = await store.create({ ...base, id: "run-4", idempotency_key: "key-1" });
+    expect(afterEviction.created).toBe(true);
+    expect(afterEviction.run.id).toBe("run-4");
   });
 });

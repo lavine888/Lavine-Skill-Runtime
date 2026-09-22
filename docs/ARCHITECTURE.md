@@ -81,7 +81,7 @@ A timeout is therefore an attempt to stop work, not only an early HTTP response.
 
 The Python runner:
 
-- resolves the entrypoint inside `skills/<skill-id>/`;
+- resolves the entrypoint inside `skills/<skill-id>/` (relative to the runtime module, with an optional `SKILLS_DIR` override for standalone deployments);
 - rejects path escape;
 - invokes a Python executable directly with `shell: false`;
 - accepts JSON on stdin and expects one JSON value on stdout;
