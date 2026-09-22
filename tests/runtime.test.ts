@@ -10,6 +10,14 @@ import {
 } from "../runtime";
 import { MemoryRunStore } from "../runtime/run-store";
 
+// Next.js augments `process.env.NODE_ENV` as a readonly literal union, so the
+// test must write it through a mutable view instead of assigning directly.
+function setNodeEnv(value: string | undefined) {
+  const env = process.env as Record<string, string | undefined>;
+  if (value === undefined) delete env.NODE_ENV;
+  else env.NODE_ENV = value;
+}
+
 describe("Lavine Skill Runtime runnable boundary", () => {
   it("registers reviewed skills and only advertises implemented runners", () => {
     const ids = listSkills().map((skill) => skill.id);
@@ -300,7 +308,7 @@ describe("Lavine Skill Runtime runnable boundary", () => {
     delete process.env.LLM_API_KEY;
     delete process.env.OPENAI_API_KEY;
     delete process.env.LLM_ALLOW_DEMO;
-    process.env.NODE_ENV = "production";
+    setNodeEnv("production");
 
     try {
       expect(isDemoExecutionAllowed()).toBe(false);
@@ -315,8 +323,7 @@ describe("Lavine Skill Runtime runnable boundary", () => {
       expect(run.error_http_status).toBe(503);
       expect(run.retryable).toBe(false);
     } finally {
-      if (previousEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = previousEnv;
+      setNodeEnv(previousEnv);
       if (previousFlag === undefined) delete process.env.LLM_ALLOW_DEMO;
       else process.env.LLM_ALLOW_DEMO = previousFlag;
       if (previousKey) process.env.LLM_API_KEY = previousKey;
@@ -330,13 +337,12 @@ describe("Lavine Skill Runtime runnable boundary", () => {
     const previousEnv = process.env.NODE_ENV;
     const previousFlag = process.env.LLM_ALLOW_DEMO;
     process.env.LLM_ALLOW_DEMO = "1";
-    process.env.NODE_ENV = "production";
+    setNodeEnv("production");
 
     try {
       expect(isDemoExecutionAllowed()).toBe(true);
     } finally {
-      if (previousEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = previousEnv;
+      setNodeEnv(previousEnv);
       if (previousFlag === undefined) delete process.env.LLM_ALLOW_DEMO;
       else process.env.LLM_ALLOW_DEMO = previousFlag;
     }
