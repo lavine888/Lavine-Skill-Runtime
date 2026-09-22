@@ -11,6 +11,7 @@
 <br />
 
 [![CI](https://github.com/lavine888/Lavine-Skill-Runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/lavine888/Lavine-Skill-Runtime/actions/workflows/ci.yml)
+[![Good first issues](https://img.shields.io/github/issues/lavine888/Lavine-Skill-Runtime/good%20first%20issue?style=flat-square&label=good%20first%20issues&color=7057ff)](https://github.com/lavine888/Lavine-Skill-Runtime/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 ![Node](https://img.shields.io/badge/Node-22-151613?style=flat-square&logo=nodedotjs&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3-151613?style=flat-square&logo=python&logoColor=white)
 ![Runtime](https://img.shields.io/badge/Runtime-LLM%20%2B%20Python-F16645?style=flat-square)
@@ -304,6 +305,53 @@ Use `python` as the final argument for a Python Skill. Generated Skills still re
 
 ---
 
+## Contribute a Skill · 贡献一个 Skill
+
+The fastest way to contribute is to add a **reviewed Skill**. Runtime Core does not change — you extend the catalog.
+
+最快的贡献方式，是新增一个**经过审核的 Skill**。Runtime Core 不需要改，你扩展的是目录。
+
+```bash
+# 1. Fork, clone, install the committed lockfile
+git clone https://github.com/<you>/Lavine-Skill-Runtime.git
+cd Lavine-Skill-Runtime
+npm ci
+
+# 2. Scaffold a reviewed Skill
+npm run skill:init -- \
+  my-skill \
+  owner/source-repo \
+  skills/my-skill/SKILL.md \
+  0123456789abcdef0123456789abcdef01234567 \
+  llm        # or: python
+
+# 3. Fill in schemas + adapter, then register it in skills/registry.ts
+npm run skill:validate
+npm test
+npm run evals
+```
+
+**Good first issues · 适合第一次贡献的任务**
+
+- [Contribute an LLM Skill](https://github.com/lavine888/Lavine-Skill-Runtime/issues?q=is%3Aissue+is%3Aopen+label%3Allm-skill)
+- [Contribute a Python Skill](https://github.com/lavine888/Lavine-Skill-Runtime/issues?q=is%3Aissue+is%3Aopen+label%3Apython-skill)
+
+A Skill PR is reviewable when / 一个 Skill PR 可被审核的标准：
+
+| Requirement / 要求 | Where / 位置 |
+| --- | --- |
+| Full 40-character source commit pinned | `manifest.json` |
+| Input and output are JSON Schema 2020-12 | `input.schema.json`, `output.schema.json` |
+| Business logic stays inside the Skill | `adapter.ts` / `runner.py` |
+| No business branches added to Runtime Core | `runtime/` |
+| Bounded timeout / byte / concurrency limits declared | `manifest.json` |
+| Registered explicitly | `skills/registry.ts` |
+
+The full contract, including the Python trust boundary, is in [`docs/ADDING_A_SKILL.md`](docs/ADDING_A_SKILL.md).  
+完整契约（含 Python 信任边界）见 [`docs/ADDING_A_SKILL.md`](docs/ADDING_A_SKILL.md)。
+
+---
+
 ## Security Boundary · 安全边界
 
 > The Python runner is **not an arbitrary-code sandbox**.  
@@ -385,6 +433,7 @@ These are **non-goals, not unfinished checkboxes**.
 | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) | Trust & security boundary / 信任与安全边界 |
 | [`SECURITY.md`](SECURITY.md) | Security policy / 安全政策 |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution workflow / 贡献流程 |
+| [Good first issues](https://github.com/lavine888/Lavine-Skill-Runtime/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) | Starter tasks / 适合第一次贡献的任务 |
 
 ---
 

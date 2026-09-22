@@ -1,0 +1,63 @@
+name: "Good first issue: contribute an LLM Skill"
+description: Propose and implement a reviewed LLM Skill that runs through the shared Runtime contract.
+title: "[Skill] Add LLM Skill: <skill-id>"
+labels: ["good first issue", "skill", "llm-skill"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing a Skill. Read
+        [`docs/ADDING_A_SKILL.md`](https://github.com/lavine888/Lavine-Skill-Runtime/blob/main/docs/ADDING_A_SKILL.md)
+        first.
+
+        A Skill owns **business meaning**. Runtime Core owns **execution semantics**.
+        If your change needs a new branch inside `runtime/`, it is not a Skill PR.
+  - type: input
+    id: skill_id
+    attributes:
+      label: Skill id
+      description: kebab-case, matches the directory name and `manifest.id`.
+      placeholder: contract-clause-checker
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What single outcome does this Skill produce?
+      description: One reviewed capability, not a pipeline.
+      placeholder: Audits a supplied contract clause against a supplied rule set and returns a verdict.
+    validations:
+      required: true
+  - type: textarea
+    id: io
+    attributes:
+      label: Input and output contract
+      description: Describe the JSON Schema 2020-12 fields. Keep it small and explicit.
+      placeholder: |
+        input: { clause: string, rules: string[] }
+        output: { verdict: "pass" | "review", reasons: string[] }
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Reviewed source pin (owner/repo + 40-char commit)
+      description: Provenance travels with every Run, so the source commit must be a full SHA.
+      placeholder: owner/repo @ 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+  - type: checkboxes
+    id: contract
+    attributes:
+      label: Contract checklist
+      options:
+        - label: Business logic lives in the Skill adapter, not in Runtime Core.
+          required: true
+        - label: Input and output schemas are JSON Schema 2020-12.
+          required: true
+        - label: Manifest declares bounded timeout / byte / concurrency limits.
+          required: true
+        - label: The Skill is explicitly registered in `skills/registry.ts`.
+          required: true
+        - label: I ran `npm run skill:validate`, `npm test`, and `npm run evals` locally.
+          required: true

@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible defect in the Runtime, API, or Workbench.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste provider API keys, real resumes, or production data.
+        For trust-boundary or Python-runner issues, use the private
+        [security policy](https://github.com/lavine888/Lavine-Skill-Runtime/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Observed behavior, with the exact error envelope if any.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Minimal steps, request payload, or test name.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or version
+      placeholder: v0.4.0 / 7772718
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: Node 22, npm 10, macOS / Linux / Windows, LLM provider configured or demo
+    validations:
+      required: true

@@ -2,7 +2,7 @@
 
 All notable changes to Lavine Skill Runtime are tracked here.
 
-## Unreleased — Runnable Boundary
+## 0.4.0 — Runnable Boundary (2026-09-23)
 
 ### Added
 
