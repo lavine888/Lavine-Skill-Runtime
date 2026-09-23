@@ -435,6 +435,20 @@ These are **non-goals, not unfinished checkboxes**.
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution workflow / 贡献流程 |
 | [Good first issues](https://github.com/lavine888/Lavine-Skill-Runtime/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) | Starter tasks / 适合第一次贡献的任务 |
 
+## Related projects / 相关项目
+
+The runtime is the execution layer of a small, evidence-first ecosystem. The other projects own the data, rules and evidence; the runtime is what actually executes the reviewed skills.
+
+| Project | What it is |
+| --- | --- |
+| [Accounting-Red-Flag-Detector](https://github.com/lavine888/Accounting-Red-Flag-Detector) | Point-in-time forensic screen for A-share accounting red flags |
+| [career-alpha](https://github.com/lavine888/career-alpha) | Evidence-grounded career decision system |
+| [ScamCity](https://github.com/lavine888/ScamCity) | Multi-agent sandbox for fraud-intervention experiments |
+| [flux-evidence-lab](https://github.com/lavine888/flux-evidence-lab) | Verifiable decision trail for reviewable AI runs |
+| [skill-buffett-moat-screener](https://github.com/lavine888/skill-buffett-moat-screener) | Point-in-time Buffett moat screener, packaged as a skill |
+
+本 Runtime 是一个「证据优先」小生态的执行层：其他项目负责数据、规则与证据，Runtime 负责把审核过的 Skill 真正跑起来。
+
 ---
 
 <div align="center">
