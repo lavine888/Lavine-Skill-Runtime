@@ -10,6 +10,11 @@ import positionInputSchema from "./career-alpha-position/input.schema.json";
 import positionOutputSchema from "./career-alpha-position/output.schema.json";
 import { careerPositionAdapter } from "./career-alpha-position/adapter";
 
+import interviewManifest from "./career-alpha-interview/manifest.json";
+import interviewInputSchema from "./career-alpha-interview/input.schema.json";
+import interviewOutputSchema from "./career-alpha-interview/output.schema.json";
+import { careerAlphaInterviewAdapter } from "./career-alpha-interview/adapter";
+
 import buffettManifest from "./buffett-moat-rule-check/manifest.json";
 import buffettInputSchema from "./buffett-moat-rule-check/input.schema.json";
 import buffettOutputSchema from "./buffett-moat-rule-check/output.schema.json";
@@ -33,5 +38,11 @@ export const skillDefinitions: SkillDefinition[] = [
     inputSchema: buffettInputSchema as Record<string, unknown>,
     outputSchema: buffettOutputSchema as Record<string, unknown>,
     adapter: buffettMoatRuleCheckAdapter,
+  },
+  {
+    manifest: interviewManifest as SkillManifest,
+    inputSchema: interviewInputSchema as Record<string, unknown>,
+    outputSchema: interviewOutputSchema as Record<string, unknown>,
+    adapter: careerAlphaInterviewAdapter,
   },
 ];

@@ -10,8 +10,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run tests/runtime.test.ts",
-    "evals": "vitest run tests/evals.test.ts",
+    "test": "vitest run tests/runtime.test.ts tests/interview.test.ts",
+    "evals": "vitest run tests/evals.test.ts tests/interview.evals.test.ts",
+    "evals:interview:live": "vitest run tests/interview.live.test.ts",
     "typecheck": "tsc --noEmit",
     "skill": "node scripts/skills.mjs",
     "skill:list": "node scripts/skills.mjs list",
@@ -19,8 +20,8 @@
     "skill:init": "node scripts/skills.mjs init"
   },
   "dependencies": {
-    "ajv": "8.17.1",
-    "next": "16.3.4",
+    "ajv": "8.20.0",
+    "next": "16.3.8",
     "openai": "5.19.1",
     "react": "19.1.1",
     "react-dom": "19.1.1"

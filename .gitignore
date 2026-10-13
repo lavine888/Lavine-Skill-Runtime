@@ -4,6 +4,7 @@ node_modules/
 .env.local
 .env.*.local
 coverage/
+.interview-eval/
 .DS_Store
 *.log
 

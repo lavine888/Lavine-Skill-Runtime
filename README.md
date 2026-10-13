@@ -15,7 +15,7 @@
 ![Node](https://img.shields.io/badge/Node-22-151613?style=flat-square&logo=nodedotjs&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3-151613?style=flat-square&logo=python&logoColor=white)
 ![Runtime](https://img.shields.io/badge/Runtime-LLM%20%2B%20Python-F16645?style=flat-square)
-![Skills](https://img.shields.io/badge/Runnable%20Skills-3-F3EFE6?style=flat-square&labelColor=151613&color=F3EFE6)
+![Skills](https://img.shields.io/badge/Runnable%20Skills-4-F3EFE6?style=flat-square&labelColor=151613&color=F3EFE6)
 
 <br />
 
@@ -82,6 +82,7 @@ The Runtime owns **execution semantics**. The Skill owns **business meaning**.
 | --- | --- | --- | --- |
 | `career-alpha-proof` | Audits career claims and proof strength | LLM | OpenAI-compatible provider or deterministic demo |
 | `career-alpha-position` | Generates evidence-aware career positioning | LLM | OpenAI-compatible provider or deterministic demo |
+| `career-alpha-interview` | Maps interview-preparation risks and targeted questions | LLM | OpenAI-compatible provider or deterministic demo |
 | `buffett-moat-rule-check` | Applies Buffett-style hard rules to supplied metrics | Python | reviewed repo-local subprocess |
 
 The Buffett integration is intentionally narrow. It evaluates supplied metrics only; it does **not** duplicate the source repository's PandaData ingestion, point-in-time reconstruction, Parquet generation, or backtesting pipeline.
@@ -119,6 +120,7 @@ Runtime 负责的是**怎么稳定执行**；Skill 负责的是**到底要做什
 | --- | --- | --- | --- |
 | `career-alpha-proof` | 检查职业经历中的 claim 与证据强度 | LLM | OpenAI-compatible Provider 或 deterministic demo |
 | `career-alpha-position` | 基于证据生成职业定位 | LLM | OpenAI-compatible Provider 或 deterministic demo |
+| `career-alpha-interview` | 生成面试风险图、针对性追问及纠正动作 | LLM | OpenAI-compatible Provider 或 deterministic demo |
 | `buffett-moat-rule-check` | 对输入指标执行 Buffett 风格硬规则检查 | Python | 仓库内审核过的 Python subprocess |
 
 Buffett 这一条是**故意做窄**的：它只处理你传入的财务指标，不会在 Runtime 里重复建设原仓库的 PandaData 数据抓取、点时重建、Parquet 或回测系统。
@@ -225,6 +227,17 @@ Without an LLM key, reviewed LLM Skills still run through deterministic demo ada
 
 Python Skills always execute their reviewed local Python entrypoint.  
 Python Skill 则始终执行仓库内审核过的本地 Python entrypoint。
+
+### Interview Risk Map · 面试风险图
+
+`career-alpha-interview` accepts `target_role`, `resume`, and optional `evidence`.
+It returns structured `risks` and `questions` with `add_evidence`, `add_knowledge`,
+or `downgrade` actions. It is a one-shot preparation tool; supplied evidence is not
+independently verified. Demo mode demonstrates the execution contract only.
+
+输入目标岗位、简历和可选证据，输出风险、追问以及补证据／补知识／降级表述的动作。
+这是一次性面试准备工具；Demo 不代表真实模型的判断质量。
+See [the contract, API example and separate live evaluation](docs/INTERVIEW_SKILL.md).
 
 ---
 
@@ -428,6 +441,7 @@ These are **non-goals, not unfinished checkboxes**.
 | --- | --- |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architecture invariants / 架构边界 |
 | [`docs/ADDING_A_SKILL.md`](docs/ADDING_A_SKILL.md) | Add a reviewed Skill / 接入新 Skill |
+| [`docs/INTERVIEW_SKILL.md`](docs/INTERVIEW_SKILL.md) | Interview contract and evaluation / 面试 Skill 契约与评测 |
 | [`docs/API.md`](docs/API.md) | HTTP API contract / API 契约 |
 | [`docs/RUNTIME_CONTRACT.md`](docs/RUNTIME_CONTRACT.md) | Runtime semantics / 运行语义 |
 | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) | Trust & security boundary / 信任与安全边界 |

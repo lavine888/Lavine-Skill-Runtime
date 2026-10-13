@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "id": "career-alpha-interview",
+  "name": "Interview Risk Map",
+  "description": "Identify interview-preparation risks in supplied career claims, with targeted questions and evidence-first corrective actions.",
+  "version": "0.1.0",
+  "source": {
+    "repo": "lavine888/career-alpha",
+    "path": "skills/interview/SKILL.md",
+    "ref": "main",
+    "commit": "c70c071771a808f618fb43c034de9c04c52276f4"
+  },
+  "runtime": {
+    "type": "llm",
+    "adapter": "career-alpha-interview"
+  },
+  "input_schema": "./input.schema.json",
+  "output_schema": "./output.schema.json",
+  "limits": {
+    "timeout_seconds": 120,
+    "max_input_bytes": 262144,
+    "max_output_bytes": 65536,
+    "max_concurrency": 2
+  },
+  "tags": ["career", "interview", "evidence"]
+}

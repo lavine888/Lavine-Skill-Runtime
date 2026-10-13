@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Interview Risk Map Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["risks", "questions"],
+  "properties": {
+    "risks": {
+      "type": "array", "maxItems": 8,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["claim", "why_attackable", "action"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "why_attackable": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "action": { "type": "string", "enum": ["add_evidence", "add_knowledge", "downgrade"] }
+        }
+      }
+    },
+    "questions": {
+      "type": "array", "maxItems": 16,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["question", "targets"],
+        "properties": {
+          "question": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "targets": { "type": "string", "minLength": 1, "maxLength": 2000 }
+        }
+      }
+    }
+  }
+}

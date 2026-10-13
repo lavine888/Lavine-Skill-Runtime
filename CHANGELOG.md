@@ -2,6 +2,24 @@
 
 All notable changes to Lavine Skill Runtime are tracked here.
 
+## Unreleased
+
+### Added
+
+- Reviewed `career-alpha-interview` LLM Skill: pinned Career Alpha source, bounded
+  input/output schemas, one-shot risk-map prompt, deterministic Demo and explicit
+  catalog registration. Runtime Core and Workbench code remain generic.
+- Interview contract tests, Demo regressions and nine synthetic semantic rubrics.
+  A separate opt-in live evaluation records provider outputs for manual review;
+  it refuses to substitute Demo when a key is missing.
+- Interview usage and validation documentation.
+
+### Fixed
+
+- Updated Next.js to 16.3.8 and Ajv to 8.20.0, with patched fast-uri, sharp/libvips
+  and source-map-js in the lockfile, to clear the existing production audit failures.
+- Synchronized the lockfile's root Node engine metadata with `package.json`.
+
 ## 0.4.0 — Runnable Boundary (2026-09-23)
 
 ### Added
