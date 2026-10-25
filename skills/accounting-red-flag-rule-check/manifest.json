@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "id": "accounting-red-flag-rule-check",
+  "name": "Accounting Red Flag Rule Check",
+  "description": "Deterministic three-rule accounting red-flag screen on supplied metrics only. Missing inputs are not imputed and never produce a pass.",
+  "version": "0.1.0",
+  "source": {
+    "repo": "lavine888/Accounting-Red-Flag-Detector",
+    "path": "SKILL.md",
+    "ref": "main",
+    "commit": "ea3fccb4f863096113335b2d79aa68858e16d3f8"
+  },
+  "runtime": {
+    "type": "python",
+    "adapter": "accounting-red-flag-rule-check",
+    "entrypoint": "runner.py"
+  },
+  "input_schema": "./input.schema.json",
+  "output_schema": "./output.schema.json",
+  "limits": {
+    "timeout_seconds": 10,
+    "max_input_bytes": 65536,
+    "max_output_bytes": 65536,
+    "max_concurrency": 4
+  },
+  "tags": [
+    "accounting",
+    "forensic",
+    "python",
+    "deterministic",
+    "offline"
+  ]
+}
