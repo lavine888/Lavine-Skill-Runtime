@@ -15,7 +15,7 @@
 ![Node](https://img.shields.io/badge/Node-22-151613?style=flat-square&logo=nodedotjs&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3-151613?style=flat-square&logo=python&logoColor=white)
 ![Runtime](https://img.shields.io/badge/Runtime-LLM%20%2B%20Python-F16645?style=flat-square)
-![Skills](https://img.shields.io/badge/Runnable%20Skills-3-F3EFE6?style=flat-square&labelColor=151613&color=F3EFE6)
+![Skills](https://img.shields.io/badge/Runnable%20Skills-4-F3EFE6?style=flat-square&labelColor=151613&color=F3EFE6)
 
 <br />
 
@@ -83,6 +83,7 @@ The Runtime owns **execution semantics**. The Skill owns **business meaning**.
 | `career-alpha-proof` | Audits career claims and proof strength | LLM | OpenAI-compatible provider or deterministic demo |
 | `career-alpha-position` | Generates evidence-aware career positioning | LLM | OpenAI-compatible provider or deterministic demo |
 | `buffett-moat-rule-check` | Applies Buffett-style hard rules to supplied metrics | Python | reviewed repo-local subprocess |
+| `accounting-red-flag-rule-check` | Checks cash conversion, receivables and inventory divergence (RF01–RF03), fail-closed on missing inputs | Python | reviewed repo-local subprocess |
 
 The Buffett integration is intentionally narrow. It evaluates supplied metrics only; it does **not** duplicate the source repository's PandaData ingestion, point-in-time reconstruction, Parquet generation, or backtesting pipeline.
 
