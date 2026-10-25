@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Accounting Red Flag Rule Check Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "symbol"
+  ],
+  "properties": {
+    "symbol": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "title": "Symbol"
+    },
+    "net_profit_positive": {
+      "type": "boolean",
+      "title": "Net profit positive (required for RF01)"
+    },
+    "cash_conversion_ratio": {
+      "type": "number",
+      "title": "Operating cash flow / net profit (ratio; 0.80 = 80%)"
+    },
+    "receivables_growth_pct": {
+      "type": "number",
+      "title": "Receivables annual growth (percent; 20 = 20%)"
+    },
+    "revenue_growth_pct": {
+      "type": "number",
+      "title": "Revenue annual growth (percent; 20 = 20%)"
+    },
+    "inventory_growth_pct": {
+      "type": "number",
+      "title": "Inventory annual growth (percent; 20 = 20%)"
+    }
+  }
+}

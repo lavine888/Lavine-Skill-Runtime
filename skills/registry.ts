@@ -15,6 +15,11 @@ import buffettInputSchema from "./buffett-moat-rule-check/input.schema.json";
 import buffettOutputSchema from "./buffett-moat-rule-check/output.schema.json";
 import { buffettMoatRuleCheckAdapter } from "./buffett-moat-rule-check/adapter";
 
+import accountingManifest from "./accounting-red-flag-rule-check/manifest.json";
+import accountingInputSchema from "./accounting-red-flag-rule-check/input.schema.json";
+import accountingOutputSchema from "./accounting-red-flag-rule-check/output.schema.json";
+import { accountingRedFlagRuleCheckAdapter } from "./accounting-red-flag-rule-check/adapter";
+
 export const skillDefinitions: SkillDefinition[] = [
   {
     manifest: proofManifest as SkillManifest,
@@ -33,5 +38,11 @@ export const skillDefinitions: SkillDefinition[] = [
     inputSchema: buffettInputSchema as Record<string, unknown>,
     outputSchema: buffettOutputSchema as Record<string, unknown>,
     adapter: buffettMoatRuleCheckAdapter,
+  },
+  {
+    manifest: accountingManifest as SkillManifest,
+    inputSchema: accountingInputSchema as Record<string, unknown>,
+    outputSchema: accountingOutputSchema as Record<string, unknown>,
+    adapter: accountingRedFlagRuleCheckAdapter,
   },
 ];

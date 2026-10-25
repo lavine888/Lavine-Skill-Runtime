@@ -24,9 +24,11 @@ describe("Lavine Skill Runtime runnable boundary", () => {
     expect(ids).toContain("career-alpha-proof");
     expect(ids).toContain("career-alpha-position");
     expect(ids).toContain("buffett-moat-rule-check");
+    expect(ids).toContain("accounting-red-flag-rule-check");
     expect(getSkill("career-alpha-proof")?.manifest.runtime.type).toBe("llm");
     expect(getSkill("career-alpha-position")?.manifest.runtime.type).toBe("llm");
     expect(getSkill("buffett-moat-rule-check")?.manifest.runtime.type).toBe("python");
+    expect(getSkill("accounting-red-flag-rule-check")?.manifest.runtime.type).toBe("python");
     expect(supportedRuntimeTypes()).toEqual(["llm", "python"]);
   });
 
@@ -135,6 +137,110 @@ describe("Lavine Skill Runtime runnable boundary", () => {
       status: "fail",
       failed_rules: ["roe", "gross_margin", "valuation"],
     });
+  });
+
+  it("runs the accounting red-flag subset through the generic Python runner", async () => {
+    const run = await executeSkill("accounting-red-flag-rule-check", {
+      symbol: "EXAMPLE",
+      net_profit_positive: true,
+      cash_conversion_ratio: 0.9,
+      receivables_growth_pct: 12,
+      revenue_growth_pct: 10,
+      inventory_growth_pct: 15,
+    });
+    expect(run.status).toBe("completed");
+    expect(run.runner).toBe("python");
+    expect(run.output).toMatchObject({
+      symbol: "EXAMPLE",
+      verdict: "pass",
+      coverage: { provided: 3, total: 3 },
+      flags: [
+        { rule: "RF01", state: "pass" },
+        { rule: "RF02", state: "pass" },
+        { rule: "RF03", state: "pass" },
+      ],
+    });
+  });
+
+  it("triggers RF01-RF03 reviews deterministically on supplied threshold breaches", async () => {
+    const input = {
+      symbol: "SYNTHETIC",
+      net_profit_positive: true,
+      cash_conversion_ratio: 0.7,
+      receivables_growth_pct: 50,
+      revenue_growth_pct: 10,
+      inventory_growth_pct: 40,
+    };
+    const [first, second] = await Promise.all([
+      executeSkill("accounting-red-flag-rule-check", input),
+      executeSkill("accounting-red-flag-rule-check", input),
+    ]);
+    expect(first.status).toBe("completed");
+    expect(second.status).toBe("completed");
+    expect(first.output).toEqual(second.output);
+    expect(first.output).toMatchObject({
+      verdict: "review",
+      coverage: { provided: 3, total: 3 },
+      flags: [
+        { rule: "RF01", state: "review" },
+        { rule: "RF02", state: "review" },
+        { rule: "RF03", state: "review" },
+      ],
+    });
+  });
+
+  it("fails closed on missing metrics, and never turns missing into a pass", async () => {
+    const run = await executeSkill("accounting-red-flag-rule-check", { symbol: "MISSING" });
+    expect(run.status).toBe("completed");
+    expect(run.output).toMatchObject({
+      verdict: "review",
+      coverage: { provided: 0, total: 3 },
+      flags: [
+        { rule: "RF01", state: "review" },
+        { rule: "RF02", state: "review" },
+        { rule: "RF03", state: "review" },
+      ],
+    });
+  });
+
+  it("treats exactly 20% growth/excess as non-triggering, using strict source thresholds", async () => {
+    const run = await executeSkill("accounting-red-flag-rule-check", {
+      symbol: "BOUNDARY",
+      net_profit_positive: true,
+      cash_conversion_ratio: 0.8,
+      receivables_growth_pct: 20,
+      revenue_growth_pct: 0,
+      inventory_growth_pct: 20,
+    });
+    expect(run.status).toBe("completed");
+    expect(run.output).toMatchObject({ verdict: "pass", coverage: { provided: 3, total: 3 } });
+  });
+
+  it("rejects null accounting inputs at schema validation before Python execution", async () => {
+    await expect(executeSkill("accounting-red-flag-rule-check", {
+      symbol: "INVALID",
+      cash_conversion_ratio: null,
+    })).rejects.toMatchObject({ code: "INPUT_INVALID" });
+  });
+
+  it("does not treat negative profit as an evaluable positive cash conversion check", async () => {
+    const run = await executeSkill("accounting-red-flag-rule-check", {
+      symbol: "LOSS",
+      net_profit_positive: false,
+      cash_conversion_ratio: 1.2,
+      receivables_growth_pct: 5,
+      revenue_growth_pct: 5,
+      inventory_growth_pct: 5,
+    });
+    expect(run.status).toBe("completed");
+    expect(run.output).toMatchObject({
+      verdict: "review",
+      coverage: { provided: 2, total: 3 },
+    });
+    const flags = (run.output as { flags: Array<{ rule: string; state: string }> }).flags;
+    expect(flags[0]).toMatchObject({ rule: "RF01", state: "review" });
+    expect(flags[1]).toMatchObject({ rule: "RF02", state: "pass" });
+    expect(flags[2]).toMatchObject({ rule: "RF03", state: "pass" });
   });
 
   it("replays the same idempotent request without executing a second run", async () => {
