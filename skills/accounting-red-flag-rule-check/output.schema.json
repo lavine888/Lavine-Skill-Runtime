@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Accounting Red Flag Rule Check Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "symbol",
+    "flags",
+    "verdict",
+    "coverage",
+    "scope",
+    "disclaimer"
+  ],
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "flags": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule",
+          "state",
+          "reason"
+        ],
+        "properties": {
+          "rule": {
+            "enum": [
+              "RF01",
+              "RF02",
+              "RF03"
+            ]
+          },
+          "state": {
+            "enum": [
+              "pass",
+              "review"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "review"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provided",
+        "total"
+      ],
+      "properties": {
+        "provided": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "total": {
+          "const": 3
+        }
+      }
+    },
+    "scope": {
+      "const": "RF01–RF03 on supplied metrics only; no data ingestion or point-in-time verification"
+    },
+    "disclaimer": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
