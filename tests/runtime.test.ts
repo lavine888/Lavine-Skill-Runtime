@@ -236,8 +236,11 @@ describe("Lavine Skill Runtime runnable boundary", () => {
     expect(run.output).toMatchObject({
       verdict: "review",
       coverage: { provided: 2, total: 3 },
-      flags: [{ rule: "RF01", state: "review" }],
     });
+    const flags = (run.output as { flags: Array<{ rule: string; state: string }> }).flags;
+    expect(flags[0]).toMatchObject({ rule: "RF01", state: "review" });
+    expect(flags[1]).toMatchObject({ rule: "RF02", state: "pass" });
+    expect(flags[2]).toMatchObject({ rule: "RF03", state: "pass" });
   });
 
   it("replays the same idempotent request without executing a second run", async () => {
